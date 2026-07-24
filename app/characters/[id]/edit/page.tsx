@@ -16,6 +16,7 @@ type Character = {
   personality: string;
   backstory: string;
   greeting: string;
+  isExplicit: boolean;
 };
 
 const EMOJI_CHOICES = ["🌸", "🦊", "🌙", "⚔️", "🕯️", "🐉", "☕", "🌊"];
@@ -34,6 +35,7 @@ export default function EditCharacterPage() {
   const [greeting, setGreeting] = useState("");
   const [avatarEmoji, setAvatarEmoji] = useState("🌸");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isExplicit, setIsExplicit] = useState(false);
 
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -54,6 +56,7 @@ export default function EditCharacterPage() {
         setGreeting(c.greeting);
         setAvatarEmoji(c.avatarEmoji);
         setAvatarUrl(c.avatarUrl);
+        setIsExplicit(c.isExplicit ?? false);
       })
       .catch(() => setNotFound(true));
   }, [params.id]);
@@ -65,7 +68,7 @@ export default function EditCharacterPage() {
     setSaved(false);
     const res = await apiFetch(`/api/characters/${params.id}`, {
       method: "PUT",
-      body: JSON.stringify({ name, tagline, personality, backstory, greeting, avatarEmoji }),
+      body: JSON.stringify({ name, tagline, personality, backstory, greeting, avatarEmoji, isExplicit }),
     });
     setSaving(false);
     if (!res.ok) {
@@ -249,6 +252,19 @@ export default function EditCharacterPage() {
             rows={2}
             className="w-full mb-6 rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring"
           />
+
+          <div className="flex items-center gap-3 mb-6 pb-6 border-b border-parchment/10">
+            <input
+              type="checkbox"
+              id="isExplicit"
+              checked={isExplicit}
+              onChange={(e) => setIsExplicit(e.target.checked)}
+              className="w-4 h-4 rounded cursor-pointer accent-rose"
+            />
+            <label htmlFor="isExplicit" className="text-sm text-parchment/70 cursor-pointer">
+              Mark as explicit/NSFW character
+            </label>
+          </div>
 
           <div className="flex gap-3">
             <button
