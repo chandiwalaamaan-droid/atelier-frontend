@@ -14,6 +14,7 @@ type Character = {
   avatarUrl: string | null;
   accentColor: string;
   greeting: string;
+  isExplicit: boolean;
 };
 
 type Message = {
@@ -75,6 +76,7 @@ export default function ChatPage() {
   const [showJump, setShowJump] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
+  const [isExplicitMode, setIsExplicitMode] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -94,6 +96,7 @@ export default function ChatPage() {
         if (!data) return;
         setCharacter(data.character);
         setMessages(data.messages);
+        setIsExplicitMode(data.character.isExplicit ?? false);
       });
   }, [params.characterId]);
 
@@ -310,6 +313,25 @@ export default function ChatPage() {
               <p className="font-display">{character.name}</p>
               {character.tagline && <p className="text-xs text-parchment/50">{character.tagline}</p>}
             </div>
+            {character.isExplicit && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-parchment/60">Normal</span>
+                <button
+                  onClick={() => setIsExplicitMode(!isExplicitMode)}
+                  className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${
+                    isExplicitMode ? "bg-rose" : "bg-parchment/20"
+                  } focus-ring`}
+                  title={isExplicitMode ? "Switch to normal mode" : "Switch to explicit mode"}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 rounded-full bg-plum-deep shadow-lg transition-transform ${
+                      isExplicitMode ? "translate-x-5" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+                <span className="text-xs text-parchment/60">Explicit</span>
+              </div>
+            )}
             <button
               onClick={onResetConversation}
               disabled={resetting || messages.length === 0}
