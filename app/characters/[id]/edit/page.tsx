@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "@/lib/api";
 import RequireAuth from "@/components/RequireAuth";
+import AppShell from "@/components/AppShell";
 
 type Character = {
   id: string;
@@ -17,6 +18,8 @@ type Character = {
   backstory: string;
   greeting: string;
   isExplicit: boolean;
+  isPublic: boolean;
+  roleplayNotes?: string;
 };
 
 const EMOJI_CHOICES = ["🌸", "🦊", "🌙", "⚔️", "🕯️", "🐉", "☕", "🌊"];
@@ -36,11 +39,14 @@ export default function EditCharacterPage() {
   const [avatarEmoji, setAvatarEmoji] = useState("🌸");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isExplicit, setIsExplicit] = useState(false);
+  const [isPublic, setIsPublic] = useState(false);
+  const [roleplayNotes, setRoleplayNotes] = useState("");
 
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [imagePrompt, setImagePrompt] = useState("");
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -57,6 +63,8 @@ export default function EditCharacterPage() {
         setAvatarEmoji(c.avatarEmoji);
         setAvatarUrl(c.avatarUrl);
         setIsExplicit(c.isExplicit ?? false);
+        setIsPublic(c.isPublic ?? false);
+        setRoleplayNotes(c.roleplayNotes ?? "");
       })
       .catch(() => setNotFound(true));
   }, [params.id]);
@@ -68,7 +76,17 @@ export default function EditCharacterPage() {
     setSaved(false);
     const res = await apiFetch(`/api/characters/${params.id}`, {
       method: "PUT",
-      body: JSON.stringify({ name, tagline, personality, backstory, greeting, avatarEmoji, isExplicit }),
+      body: JSON.stringify({
+        name,
+        tagline,
+        personality,
+        backstory,
+        greeting,
+        avatarEmoji,
+        isExplicit,
+        isPublic,
+        roleplayNotes: isExplicit ? roleplayNotes : "",
+      }),
     });
     setSaving(false);
     if (!res.ok) {
@@ -101,7 +119,10 @@ export default function EditCharacterPage() {
   async function onGenerate() {
     setError("");
     setGenerating(true);
-    const res = await apiFetch(`/api/characters/${params.id}/avatar/generate`, { method: "POST" });
+    const res = await apiFetch(`/api/characters/${params.id}/avatar/generate`, {
+      method: "POST",
+      body: JSON.stringify({ prompt: imagePrompt.trim() || undefined }),
+    });
     setGenerating(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -114,26 +135,53 @@ export default function EditCharacterPage() {
 
   if (notFound) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center gap-4">
-        <p className="font-display text-xl">Couldn't find that character.</p>
-        <Link href="/dashboard" className="text-gold hover:underline">
-          Back to your characters
-        </Link>
-      </main>
+      <RequireAuth>
+        <AppShell>
+          <main className="flex-1 flex items-center justify-center gap-4">
+            <p className="font-display text-xl">Couldn&apos;t find that character.</p>
+            <Link href="/dashboard" className="text-gold hover:underline">
+              Back to Studio
+            </Link>
+          </main>
+        </AppShell>
+      </RequireAuth>
     );
   }
 
   if (!character) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        <p className="text-parchment/60">Loading…</p>
-      </main>
+      <RequireAuth>
+        <AppShell>
+          <main className="flex-1 overflow-y-auto px-4 md:px-10 py-8">
+            <div className="max-w-2xl mx-auto animate-pulse">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-6 h-6 rounded bg-parchment/10" />
+            <div className="h-7 w-40 rounded bg-parchment/10" />
+          </div>
+          <div className="stitched rounded-2xl bg-plum/60 p-6 mb-6">
+            <div className="h-4 w-16 rounded bg-parchment/10 mb-3" />
+            <div className="flex items-center gap-5">
+              <div className="w-20 h-20 rounded-full bg-parchment/10 shrink-0" />
+              <div className="h-8 w-32 rounded-full bg-parchment/10" />
+            </div>
+          </div>
+          <div className="stitched rounded-2xl bg-plum/60 p-6 space-y-4">
+            <div className="h-9 w-full rounded-lg bg-parchment/10" />
+            <div className="h-9 w-full rounded-lg bg-parchment/10" />
+            <div className="h-16 w-full rounded-lg bg-parchment/10" />
+            <div className="h-28 w-full rounded-lg bg-parchment/10" />
+          </div>
+            </div>
+          </main>
+        </AppShell>
+      </RequireAuth>
     );
   }
 
   return (
     <RequireAuth>
-    <main className="min-h-screen px-6 py-8 md:px-12">
+    <AppShell>
+    <main className="flex-1 overflow-y-auto px-4 md:px-10 py-8">
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <Link href="/dashboard" className="text-parchment/60 hover:text-gold focus-ring rounded px-2">
@@ -190,6 +238,21 @@ export default function EditCharacterPage() {
                 onChange={onUpload}
               />
               <p className="text-xs text-parchment/50">PNG, JPEG, WebP, or GIF, up to 5MB.</p>
+              <label className="block text-xs text-parchment/60 mt-3 mb-1">
+                Custom AI prompt {isExplicit ? "(optional — NSFW allowed)" : "(optional)"}
+              </label>
+              <textarea
+                value={imagePrompt}
+                onChange={(e) => setImagePrompt(e.target.value)}
+                rows={2}
+                maxLength={4000}
+                placeholder={
+                  isExplicit
+                    ? "Describe the portrait you want — mature or suggestive styling is fine for explicit characters."
+                    : "Override the default portrait prompt, or leave blank to auto-generate from the character profile."
+                }
+                className="w-full rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 text-sm focus-ring"
+              />
             </div>
           </div>
 
@@ -253,18 +316,57 @@ export default function EditCharacterPage() {
             className="w-full mb-6 rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring"
           />
 
-          <div className="flex items-center gap-3 mb-6 pb-6 border-b border-parchment/10">
+          <div className="flex items-center gap-3 mb-4 pb-6 border-b border-parchment/10">
             <input
               type="checkbox"
               id="isExplicit"
               checked={isExplicit}
-              onChange={(e) => setIsExplicit(e.target.checked)}
+              onChange={(e) => {
+                setIsExplicit(e.target.checked);
+                if (e.target.checked) setIsPublic(false);
+                else setRoleplayNotes("");
+              }}
               className="w-4 h-4 rounded cursor-pointer accent-rose"
             />
             <label htmlFor="isExplicit" className="text-sm text-parchment/70 cursor-pointer">
               Mark as explicit/NSFW character
             </label>
           </div>
+
+          <div className="flex items-center gap-3 mb-6 pb-6 border-b border-parchment/10">
+            <input
+              type="checkbox"
+              id="isPublic"
+              checked={isPublic}
+              disabled={isExplicit}
+              onChange={(e) => setIsPublic(e.target.checked)}
+              className="w-4 h-4 rounded cursor-pointer accent-gold disabled:opacity-40"
+            />
+            <label
+              htmlFor="isPublic"
+              className={`text-sm cursor-pointer ${isExplicit ? "text-parchment/30" : "text-parchment/70"}`}
+            >
+              Share to the Discover gallery so others can remix this character
+            </label>
+          </div>
+          {isExplicit && (
+            <p className="text-xs text-parchment/40 -mt-4 mb-4">
+              Explicit characters can't be shared publicly.
+            </p>
+          )}
+
+          {isExplicit && (
+            <>
+              <label className="block text-sm mb-1 text-parchment/70">Roleplay notes (optional)</label>
+              <textarea
+                value={roleplayNotes}
+                onChange={(e) => setRoleplayNotes(e.target.value.slice(0, 1200))}
+                rows={3}
+                className="w-full mb-6 rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring text-sm"
+                placeholder="Kinks, scenario hooks, tone, boundaries — shapes explicit-mode replies."
+              />
+            </>
+          )}
 
           <div className="flex gap-3">
             <button
@@ -284,6 +386,7 @@ export default function EditCharacterPage() {
         </form>
       </div>
     </main>
+    </AppShell>
     </RequireAuth>
   );
 }

@@ -34,6 +34,10 @@ config, the fonts — is untouched.
 2. `cp .env.example .env.local` and set `NEXT_PUBLIC_API_URL` to wherever the
    backend is running (`http://localhost:4000` if running it locally per its
    own README).
+   - `NEXT_PUBLIC_RAZORPAY_KEY_ID` — optional, only needed once billing goes
+     live (see the backend README's "Turning on billing (Razorpay) later").
+     Leave unset for now — `PREMIUM_PAYMENTS_ENABLED = false` in
+     `lib/premium.ts` keeps every buy/subscribe button disabled regardless.
 3. `npm run dev` — opens on `http://localhost:3000`
 
 Run the backend locally too (see its README) — this app has no data of its

@@ -11,6 +11,9 @@ const config: Config = {
         parchment: "#f6efe3",
         gold: "#c9a227",
         rose: "#b5657a",
+        void: "#0a0a0c",
+        "surface-raised": "#121218",
+        "surface-card": "#18181f",
       },
       fontFamily: {
         display: ["var(--font-fraunces)", "serif"],

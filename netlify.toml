@@ -9,3 +9,8 @@
 # Environment variables) to your deployed Render backend's URL, e.g.
 # https://atelier-backend.onrender.com — it must be set at build time since
 # NEXT_PUBLIC_* vars are baked into the client bundle.
+#
+# NEXT_PUBLIC_RAZORPAY_KEY_ID — optional, only needed once billing goes live
+# (see the backend README's "Turning on billing (Razorpay) later"). Leave
+# unset for now; lib/premium.ts's PREMIUM_PAYMENTS_ENABLED=false keeps every
+# buy/subscribe button disabled regardless.

@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiFetch, resolveMediaUrl } from "@/lib/api";
 import RequireAuth from "@/components/RequireAuth";
+import AppShell from "@/components/AppShell";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import CharacterImportPanel from "@/components/CharacterImportPanel";
+import { CharacterCardSkeleton } from "@/components/Skeleton";
 
 type Character = {
   id: string;
@@ -13,9 +17,32 @@ type Character = {
   avatarEmoji: string;
   avatarUrl: string | null;
   accentColor: string;
+  lastMessagePreview?: string | null;
+  lastMessageRole?: "user" | "assistant" | null;
+  lastActivityAt?: string;
+  isPublic?: boolean;
 };
 
+/** Compact relative time for card timestamps ("Just now", "3h ago", "Tue"). */
+function relativeTime(iso?: string): string | null {
+  if (!iso) return null;
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return null;
+  const diffMs = Date.now() - then;
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 const EMOJI_CHOICES = ["🌸", "🦊", "🌙", "⚔️", "🕯️", "🐉", "☕", "🌊"];
+// Mirrors MAX_FIELD_LENGTH in the backend's routes/characters.ts — kept in
+// sync here so the counter and the server's actual truncation point agree.
+const MAX_FIELD_LENGTH = 1200;
 
 const STARTER_TEMPLATES = [
   {
@@ -67,9 +94,18 @@ export default function DashboardPage() {
   const [backstory, setBackstory] = useState("");
   const [greeting, setGreeting] = useState("");
   const [avatarEmoji, setAvatarEmoji] = useState("🌸");
+  const [isExplicit, setIsExplicit] = useState(false);
+  const [roleplayNotes, setRoleplayNotes] = useState("");
+  const [draftExplicit, setDraftExplicit] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [creatingTemplate, setCreatingTemplate] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [idea, setIdea] = useState("");
+  const [drafting, setDrafting] = useState(false);
+  const [draftError, setDraftError] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     apiFetch("/api/auth/me")
@@ -105,13 +141,56 @@ export default function DashboardPage() {
     }
   }
 
+  async function onDraft(e: React.FormEvent) {
+    e.preventDefault();
+    if (!idea.trim() || drafting) return;
+    setDraftError("");
+    setDrafting(true);
+    try {
+      const res = await apiFetch("/api/characters/draft", {
+        method: "POST",
+        body: JSON.stringify({ idea: idea.trim(), allowExplicit: draftExplicit }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.draft) {
+        setDraftError(data.error || "Couldn't draft a character right now.");
+        return;
+      }
+      // Pre-fill the full form so the user reviews/edits before creating —
+      // this never creates the character directly.
+      setName(data.draft.name);
+      setTagline(data.draft.tagline);
+      setPersonality(data.draft.personality);
+      setBackstory(data.draft.backstory);
+      setGreeting(data.draft.greeting);
+      if (typeof data.draft.roleplayNotes === "string") setRoleplayNotes(data.draft.roleplayNotes);
+      setIsExplicit(draftExplicit);
+      setShowForm(true);
+      setIdea("");
+      requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    } catch {
+      setDraftError("Couldn't reach the server. Please try again.");
+    } finally {
+      setDrafting(false);
+    }
+  }
+
   async function onCreate(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setSaving(true);
     const res = await apiFetch("/api/characters", {
       method: "POST",
-      body: JSON.stringify({ name, tagline, personality, backstory, greeting, avatarEmoji }),
+      body: JSON.stringify({
+        name,
+        tagline,
+        personality,
+        backstory,
+        greeting,
+        avatarEmoji,
+        isExplicit,
+        roleplayNotes: isExplicit ? roleplayNotes : "",
+      }),
     });
     setSaving(false);
     if (!res.ok) {
@@ -125,45 +204,92 @@ export default function DashboardPage() {
     setBackstory("");
     setGreeting("");
     setAvatarEmoji("🌸");
+    setIsExplicit(false);
     setShowForm(false);
     loadCharacters();
   }
 
   async function onDelete(id: string) {
-    if (!confirm("Delete this character and its conversation?")) return;
-    await apiFetch(`/api/characters/${id}`, { method: "DELETE" });
-    loadCharacters();
+    setPendingDeleteId(id);
   }
 
-  async function logout() {
-    await apiFetch("/api/auth/logout", { method: "POST" });
-    router.push("/");
-    router.refresh();
+  async function confirmDelete() {
+    if (!pendingDeleteId) return;
+    setDeleting(true);
+    try {
+      await apiFetch(`/api/characters/${pendingDeleteId}`, { method: "DELETE" });
+      await loadCharacters();
+    } finally {
+      setDeleting(false);
+      setPendingDeleteId(null);
+    }
   }
+
 
   return (
     <RequireAuth>
-    <main className="min-h-screen px-6 py-8 md:px-12">
-      <header className="flex items-center justify-between mb-10">
+    <AppShell>
+    <main className="flex-1 overflow-y-auto px-4 md:px-10 py-8">
+      <header className="flex flex-wrap items-center justify-between gap-4 mb-10">
         <div>
-          <p className="text-sm text-parchment/60">Welcome back{displayName ? `, ${displayName}` : ""}</p>
+          <p className="text-sm text-parchment/60">Studio</p>
           <h1 className="font-display text-3xl">Your characters</h1>
+          <p className="text-sm text-parchment/45 mt-1">Welcome back{displayName ? `, ${displayName}` : ""}</p>
         </div>
         <div className="flex gap-3">
+          <Link
+            href="/explore"
+            className="border border-white/15 px-4 py-2 rounded-full hover:border-gold focus-ring flex items-center text-sm"
+          >
+            Explore
+          </Link>
           <button
             onClick={() => setShowForm((s) => !s)}
             className="bg-gold text-ink px-5 py-2 rounded-full font-medium hover:brightness-110 focus-ring"
           >
             {showForm ? "Cancel" : "+ New character"}
           </button>
-          <button onClick={logout} className="border border-parchment/30 px-4 py-2 rounded-full hover:border-gold focus-ring">
-            Log out
-          </button>
         </div>
       </header>
 
+      <div className="stitched rounded-2xl bg-gradient-to-br from-gold/10 to-plum/60 p-6 mb-8 max-w-2xl">
+        <p className="font-display text-lg mb-1">✨ Quick start</p>
+        <p className="text-sm text-parchment/60 mb-4">
+          Describe a character idea in one sentence — we'll draft their personality, backstory, and greeting for you
+          to review and tweak.
+        </p>
+        <form onSubmit={onDraft} className="flex flex-col sm:flex-row gap-2">
+          <input
+            value={idea}
+            onChange={(e) => setIdea(e.target.value)}
+            placeholder="e.g. a grumpy retired sea captain who runs a bookshop now"
+            className="flex-1 rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring"
+            maxLength={300}
+          />
+          <button
+            type="submit"
+            disabled={drafting || !idea.trim()}
+            className="bg-gold text-ink px-5 py-2 rounded-full font-medium hover:brightness-110 focus-ring disabled:opacity-50 shrink-0"
+          >
+            {drafting ? "Drafting…" : "Draft it"}
+          </button>
+        </form>
+        <label className="mt-3 flex items-center gap-2 text-sm text-parchment/60 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={draftExplicit}
+            onChange={(e) => setDraftExplicit(e.target.checked)}
+            className="w-4 h-4 rounded accent-rose cursor-pointer"
+          />
+          Draft as explicit/NSFW character
+        </label>
+        {draftError && <p className="mt-3 text-sm text-rose">{draftError}</p>}
+      </div>
+
+      <CharacterImportPanel onImported={loadCharacters} />
+
       {showForm && (
-        <form onSubmit={onCreate} className="stitched rounded-2xl bg-plum/60 p-8 mb-10 max-w-2xl">
+        <form ref={formRef} onSubmit={onCreate} className="stitched rounded-2xl bg-plum/60 p-8 mb-10 max-w-2xl">
           <h2 className="font-display text-xl mb-4">Craft a new character</h2>
           {error && (
             <p className="mb-4 text-sm text-rose bg-rose/10 border border-rose/30 rounded px-3 py-2">{error}</p>
@@ -207,9 +333,13 @@ export default function DashboardPage() {
             value={personality}
             onChange={(e) => setPersonality(e.target.value)}
             rows={2}
-            className="w-full mb-4 rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring"
+            maxLength={MAX_FIELD_LENGTH}
+            className="w-full rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring"
             placeholder="e.g. dry humor, fiercely loyal, terrible at small talk"
           />
+          <p className="text-right text-xs text-parchment/40 mb-4">
+            {personality.length}/{MAX_FIELD_LENGTH}
+          </p>
 
           <label className="block text-sm mb-1 text-parchment/70">Backstory</label>
           <textarea
@@ -217,9 +347,13 @@ export default function DashboardPage() {
             value={backstory}
             onChange={(e) => setBackstory(e.target.value)}
             rows={4}
-            className="w-full mb-4 rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring"
+            maxLength={MAX_FIELD_LENGTH}
+            className="w-full rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring"
             placeholder="What's their history? What do they want? What do they avoid talking about?"
           />
+          <p className="text-right text-xs text-parchment/40 mb-4">
+            {backstory.length}/{MAX_FIELD_LENGTH}
+          </p>
 
           <label className="block text-sm mb-1 text-parchment/70">Opening greeting</label>
           <textarea
@@ -227,9 +361,40 @@ export default function DashboardPage() {
             value={greeting}
             onChange={(e) => setGreeting(e.target.value)}
             rows={2}
-            className="w-full mb-6 rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring"
+            className="w-full mb-4 rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring"
             placeholder="The first line they say when a chat opens"
           />
+
+          <label className="flex items-center gap-2 mb-4 text-sm text-parchment/70 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isExplicit}
+              onChange={(e) => {
+                setIsExplicit(e.target.checked);
+                if (!e.target.checked) setRoleplayNotes("");
+              }}
+              className="w-4 h-4 rounded accent-rose cursor-pointer"
+            />
+            Mark as explicit/NSFW character (enables mature avatar generation styling)
+          </label>
+
+          {isExplicit && (
+            <>
+              <label className="block text-sm mb-1 text-parchment/70">Roleplay notes (optional)</label>
+              <textarea
+                value={roleplayNotes}
+                onChange={(e) => setRoleplayNotes(e.target.value.slice(0, MAX_FIELD_LENGTH))}
+                rows={3}
+                className="w-full mb-2 rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring text-sm"
+                placeholder="Scenario hooks, seduction style, soft boundaries — injected into spicy chats only."
+              />
+              <p className="text-xs text-parchment/40 mb-6">
+                Private to your account. Used when explicit mode is on in chat.
+              </p>
+            </>
+          )}
+
+          {!isExplicit && <div className="mb-6" />}
 
           <button
             type="submit"
@@ -241,7 +406,13 @@ export default function DashboardPage() {
         </form>
       )}
 
-      {characters === null && <p className="text-parchment/60">Loading your characters…</p>}
+      {characters === null && (
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <CharacterCardSkeleton key={i} />
+          ))}
+        </div>
+      )}
 
       {characters !== null && characters.length === 0 && !showForm && (
         <div className="max-w-2xl">
@@ -285,51 +456,80 @@ export default function DashboardPage() {
       )}
 
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {characters?.map((c) => (
-          <div key={c.id} className="stitched rounded-2xl bg-plum/60 p-6 flex flex-col">
-            <div className="flex items-center gap-3 mb-3">
-              <span
-                className="text-2xl w-12 h-12 flex items-center justify-center rounded-full overflow-hidden"
-                style={{ backgroundColor: `${c.accentColor}30` }}
-              >
-                {c.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={resolveMediaUrl(c.avatarUrl)} alt={c.name} className="w-full h-full object-cover" />
-                ) : (
-                  c.avatarEmoji
-                )}
-              </span>
-              <div>
-                <p className="font-display text-lg">{c.name}</p>
-                {c.tagline && <p className="text-xs text-parchment/60">{c.tagline}</p>}
+        {characters?.map((c) => {
+          const preview = c.lastMessagePreview?.trim();
+          const when = relativeTime(c.lastActivityAt);
+          return (
+            <div key={c.id} className="stitched rounded-2xl bg-plum/60 p-6 flex flex-col">
+              <div className="flex items-center gap-3 mb-3">
+                <span
+                  className="text-2xl w-12 h-12 flex items-center justify-center rounded-full overflow-hidden shrink-0"
+                  style={{ backgroundColor: `${c.accentColor}30` }}
+                >
+                  {c.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={resolveMediaUrl(c.avatarUrl)} alt={c.name} className="w-full h-full object-cover" />
+                  ) : (
+                    c.avatarEmoji
+                  )}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-display text-lg truncate">{c.name}</p>
+                    {when && <p className="text-[11px] text-parchment/40 shrink-0">{when}</p>}
+                  </div>
+                  {c.isPublic && (
+                    <span className="inline-block text-[10px] text-gold/80 border border-gold/30 rounded-full px-2 py-0.5 mt-0.5">
+                      Shared
+                    </span>
+                  )}
+                  {c.tagline && <p className="text-xs text-parchment/60 truncate">{c.tagline}</p>}
+                </div>
+              </div>
+              {preview && (
+                <p className="text-xs text-parchment/50 line-clamp-2 mb-2">
+                  {c.lastMessageRole === "user" ? "You: " : ""}
+                  {preview}
+                </p>
+              )}
+              <div className="mt-auto flex gap-2 pt-4">
+                <Link
+                  href={`/chat/${c.id}`}
+                  className="flex-1 text-center bg-gold text-ink py-2 rounded-full font-medium hover:brightness-110 focus-ring"
+                >
+                  Chat
+                </Link>
+                <Link
+                  href={`/characters/${c.id}/edit`}
+                  className="px-3 rounded-full border border-parchment/20 hover:border-gold focus-ring flex items-center"
+                  aria-label={`Edit ${c.name}`}
+                >
+                  ✎
+                </Link>
+                <button
+                  onClick={() => onDelete(c.id)}
+                  className="px-3 rounded-full border border-parchment/20 hover:border-rose hover:text-rose focus-ring"
+                  aria-label={`Delete ${c.name}`}
+                >
+                  ✕
+                </button>
               </div>
             </div>
-            <div className="mt-auto flex gap-2 pt-4">
-              <Link
-                href={`/chat/${c.id}`}
-                className="flex-1 text-center bg-gold text-ink py-2 rounded-full font-medium hover:brightness-110 focus-ring"
-              >
-                Chat
-              </Link>
-              <Link
-                href={`/characters/${c.id}/edit`}
-                className="px-3 rounded-full border border-parchment/20 hover:border-gold focus-ring flex items-center"
-                aria-label={`Edit ${c.name}`}
-              >
-                ✎
-              </Link>
-              <button
-                onClick={() => onDelete(c.id)}
-                className="px-3 rounded-full border border-parchment/20 hover:border-rose hover:text-rose focus-ring"
-                aria-label={`Delete ${c.name}`}
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
+
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        title={`Delete ${characters?.find((c) => c.id === pendingDeleteId)?.name ?? "this character"}?`}
+        description="This deletes the character and its whole conversation history. This can't be undone."
+        confirmLabel={deleting ? "Deleting…" : "Delete"}
+        destructive
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDeleteId(null)}
+      />
     </main>
+    </AppShell>
     </RequireAuth>
   );
 }

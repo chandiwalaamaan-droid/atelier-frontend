@@ -7,9 +7,23 @@
 }
 
 body {
+  background-color: #0a0a0c;
   background-image:
-    radial-gradient(circle at 20% 0%, rgba(201, 162, 39, 0.08), transparent 45%),
-    radial-gradient(circle at 100% 100%, rgba(181, 101, 122, 0.10), transparent 50%);
+    radial-gradient(circle at 20% 0%, rgba(201, 162, 39, 0.06), transparent 45%),
+    radial-gradient(circle at 100% 100%, rgba(181, 101, 122, 0.08), transparent 50%);
+}
+
+.promo-banner {
+  background: linear-gradient(105deg, rgba(201, 162, 39, 0.18) 0%, rgba(43, 26, 61, 0.6) 45%, rgba(10, 10, 12, 0.9) 100%);
+}
+
+.tier-card-glow-gold {
+  box-shadow: inset 0 1px 0 rgba(255, 220, 120, 0.25);
+}
+.tier-card-glow-rainbow {
+  background: linear-gradient(#18181f, #18181f) padding-box,
+    linear-gradient(135deg, #a855f7, #f472b6, #fbbf24) border-box;
+  border: 1px solid transparent;
 }
 
 /* Signature element: a stitched border, like thread binding a character card together */
@@ -48,6 +62,17 @@ body {
 }
 .toast-in {
   animation: toast-in 0.2s ease-out;
+}
+
+@keyframes engine-sheet-in {
+  from { transform: translateX(100%); opacity: 0.6; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.engine-sheet {
+  animation: engine-sheet-in 0.22s ease-out;
+}
+.engine-card-selected {
+  box-shadow: 0 0 0 1px rgba(246, 239, 227, 0.35), 0 4px 24px rgba(0, 0, 0, 0.25);
 }
 
 @media (prefers-reduced-motion: reduce) {

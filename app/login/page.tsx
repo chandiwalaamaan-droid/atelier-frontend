@@ -38,7 +38,7 @@ function LoginForm() {
     // Send the user back to whatever page RequireAuth redirected them from
     // (?next=...), falling back to the dashboard if there isn't one.
     const next = searchParams.get("next");
-    router.push(next && next.startsWith("/") ? next : "/dashboard");
+    router.push(next && next.startsWith("/") ? next : "/explore");
     router.refresh();
   }
 
@@ -67,8 +67,13 @@ function LoginForm() {
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full mb-6 rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring"
+          className="w-full mb-2 rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring"
         />
+        <p className="mb-6 text-right">
+          <Link href="/forgot-password" className="text-xs text-gold hover:underline">
+            Forgot password?
+          </Link>
+        </p>
 
         <button
           type="submit"

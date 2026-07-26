@@ -1,0 +1,289 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api";
+import RequireAuth from "@/components/RequireAuth";
+import AppShell from "@/components/AppShell";
+import WelcomeOnboarding from "@/components/WelcomeOnboarding";
+import ExploreCharacterCard, {
+  ExploreCharacterCardSkeleton,
+  inferTags,
+  type ExploreCardCharacter,
+} from "@/components/ExploreCharacterCard";
+import { PremiumLockBadge } from "@/components/PremiumActionButton";
+
+const REPORT_REASONS: { value: string; label: string }[] = [
+  { value: "harassment_or_hate", label: "Harassment or hate speech" },
+  { value: "impersonates_real_person", label: "Impersonates a real person" },
+  { value: "sexual_content_not_marked_explicit", label: "Sexual content (not marked explicit)" },
+  { value: "spam_or_scam", label: "Spam or scam" },
+  { value: "other", label: "Something else" },
+];
+
+const TABS = [
+  { id: "all", label: "Explore" },
+  { id: "trending", label: "Trending" },
+  { id: "premium", label: "Premium" },
+  { id: "romance", label: "Romance" },
+  { id: "drama", label: "Drama" },
+  { id: "slice", label: "Slice of life" },
+  { id: "adventure", label: "Adventure" },
+  { id: "comedy", label: "Comedy" },
+] as const;
+
+type TabId = (typeof TABS)[number]["id"];
+
+function matchesTab(c: ExploreCardCharacter, tab: TabId): boolean {
+  if (tab === "all") return true;
+  const tags = inferTags(c).map((t) => t.toLowerCase());
+  if (tab === "trending") return true;
+  if (tab === "premium") return tags.includes("romance") || tags.includes("drama");
+  if (tab === "romance") return tags.includes("romance");
+  if (tab === "drama") return tags.includes("drama");
+  if (tab === "slice") return tags.includes("slice of life");
+  if (tab === "adventure") return tags.includes("adventure");
+  if (tab === "comedy") return tags.includes("comedy");
+  return true;
+}
+
+export default function ExplorePage() {
+  const router = useRouter();
+  const [characters, setCharacters] = useState<ExploreCardCharacter[] | null>(null);
+  const [tab, setTab] = useState<TabId>("all");
+  const [query, setQuery] = useState("");
+  const [remixingId, setRemixingId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [reportTarget, setReportTarget] = useState<ExploreCardCharacter | null>(null);
+  const [reportReason, setReportReason] = useState(REPORT_REASONS[0].value);
+  const [reportNote, setReportNote] = useState("");
+  const [reportStatus, setReportStatus] = useState<"idle" | "sending" | "sent">("idle");
+  const [reportError, setReportError] = useState("");
+
+  useEffect(() => {
+    apiFetch("/api/characters/discover")
+      .then(async (r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data) => setCharacters(data.characters))
+      .catch(() => setCharacters([]));
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!characters) return null;
+    const q = query.trim().toLowerCase();
+    let list = characters.filter((c) => matchesTab(c, tab));
+    if (tab === "trending") {
+      list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+    }
+    if (q) {
+      list = list.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          c.tagline.toLowerCase().includes(q) ||
+          c.personality.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [characters, tab, query]);
+
+  async function onRemix(id: string) {
+    if (remixingId) return;
+    setError("");
+    setRemixingId(id);
+    try {
+      const res = await apiFetch(`/api/characters/${id}/remix`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.character) {
+        setError(data.error || "Couldn't add that character.");
+        return;
+      }
+      router.push(`/chat/${data.character.id}`);
+    } catch {
+      setError("Couldn't reach the server.");
+    } finally {
+      setRemixingId(null);
+    }
+  }
+
+  async function submitReport() {
+    if (!reportTarget) return;
+    setReportStatus("sending");
+    setReportError("");
+    try {
+      const res = await apiFetch(`/api/characters/${reportTarget.id}/report`, {
+        method: "POST",
+        body: JSON.stringify({ reason: reportReason, note: reportNote }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setReportError(data.error || "Couldn't submit the report.");
+        setReportStatus("idle");
+        return;
+      }
+      setReportStatus("sent");
+    } catch {
+      setReportError("Couldn't reach the server.");
+      setReportStatus("idle");
+    }
+  }
+
+  return (
+    <RequireAuth>
+      <AppShell>
+        <WelcomeOnboarding />
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-4 md:px-8 pt-6 pb-4">
+            <Link
+              href="/plus"
+              className="promo-banner block rounded-2xl border border-gold/20 px-6 py-5 mb-6 overflow-hidden relative focus-ring"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <p className="text-xs text-gold/90 uppercase tracking-widest mb-1">Join Atelier+</p>
+                  <p className="text-xl md:text-2xl font-display text-parchment">
+                    Unlimited access to premium roleplay engines
+                  </p>
+                  <p className="text-sm text-parchment/50 mt-1 flex items-center gap-2 flex-wrap">
+                    Premium models · Extended memory · No ads (later)
+                    <PremiumLockBadge />
+                  </p>
+                </div>
+                <span className="text-5xl opacity-90 hidden sm:block" aria-hidden>
+                  ♛
+                </span>
+              </div>
+            </Link>
+
+            <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-4">
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                {TABS.map(({ id, label }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setTab(id)}
+                    className={`shrink-0 px-4 py-2 rounded-full text-sm focus-ring border transition-colors ${
+                      tab === id
+                        ? "bg-white/10 border-white/20 text-parchment"
+                        : "border-transparent text-parchment/45 hover:text-parchment/70"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex-1 max-w-md ml-auto">
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search characters…"
+                  className="w-full rounded-full bg-surface-card border border-white/10 px-4 py-2.5 text-sm focus-ring placeholder:text-parchment/30"
+                />
+              </div>
+            </div>
+
+            {error && (
+              <p className="mb-4 text-sm text-rose bg-rose/10 border border-rose/30 rounded-lg px-3 py-2">{error}</p>
+            )}
+
+            {filtered === null && (
+              <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <ExploreCharacterCardSkeleton key={i} />
+                ))}
+              </div>
+            )}
+
+            {filtered?.length === 0 && (
+              <div className="text-center py-16 text-parchment/45">
+                <p className="text-lg mb-2">Nothing here yet</p>
+                <p className="text-sm max-w-md mx-auto">
+                  Share a character from{" "}
+                  <Link href="/dashboard" className="text-gold hover:underline">
+                    Studio
+                  </Link>{" "}
+                  or try another category.
+                </p>
+              </div>
+            )}
+
+            {filtered && filtered.length > 0 && (
+              <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                {filtered.map((c) => (
+                  <ExploreCharacterCard
+                    key={c.id}
+                    character={c}
+                    onRemix={() => onRemix(c.id)}
+                    remixing={remixingId === c.id}
+                    onReport={() => {
+                      setReportTarget(c);
+                      setReportReason(REPORT_REASONS[0].value);
+                      setReportNote("");
+                      setReportStatus("idle");
+                      setReportError("");
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {reportTarget && (
+          <div className="fixed inset-0 bg-black/75 flex items-center justify-center px-6 z-50" onClick={() => setReportTarget(null)}>
+            <div className="w-full max-w-sm rounded-2xl bg-surface-card border border-white/10 p-6" onClick={(e) => e.stopPropagation()}>
+              {reportStatus === "sent" ? (
+                <>
+                  <h2 className="font-display text-xl mb-2">Report sent</h2>
+                  <button
+                    type="button"
+                    onClick={() => setReportTarget(null)}
+                    className="w-full mt-4 bg-gold text-ink py-2 rounded-full font-medium focus-ring"
+                  >
+                    Done
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h2 className="font-display text-xl mb-4">Report &quot;{reportTarget.name}&quot;</h2>
+                  {reportError && <p className="mb-3 text-sm text-rose">{reportError}</p>}
+                  <select
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    className="w-full mb-3 rounded-xl bg-surface-raised border border-white/10 px-3 py-2 text-sm focus-ring"
+                  >
+                    {REPORT_REASONS.map((r) => (
+                      <option key={r.value} value={r.value}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+                  <textarea
+                    value={reportNote}
+                    onChange={(e) => setReportNote(e.target.value)}
+                    rows={3}
+                    className="w-full mb-4 rounded-xl bg-surface-raised border border-white/10 px-3 py-2 text-sm focus-ring resize-none"
+                    placeholder="Optional details"
+                  />
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setReportTarget(null)} className="flex-1 py-2 rounded-full border border-white/15 focus-ring">
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={submitReport}
+                      disabled={reportStatus === "sending"}
+                      className="flex-1 py-2 rounded-full bg-rose text-ink font-medium focus-ring disabled:opacity-50"
+                    >
+                      Submit
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </AppShell>
+    </RequireAuth>
+  );
+}

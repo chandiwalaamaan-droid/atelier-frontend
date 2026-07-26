@@ -2,9 +2,11 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <main className="min-h-screen flex flex-col">
-      <header className="flex items-center justify-between px-6 py-6 md:px-12">
-        <span className="font-display text-xl tracking-wide">Atelier</span>
+    <main className="min-h-screen flex flex-col bg-void">
+      <header className="flex items-center justify-between px-6 py-6 md:px-12 border-b border-white/5">
+        <span className="font-display text-xl tracking-wide flex items-center gap-2">
+          <span className="text-lg">🌸</span> Atelier
+        </span>
         <nav className="flex gap-4 text-sm">
           <Link href="/login" className="hover:text-gold focus-ring rounded px-2 py-1">
             Log in
@@ -63,6 +65,16 @@ export default function Home() {
           </p>
         </div>
       </div>
+
+      <footer className="px-6 pb-10 md:px-12 flex flex-wrap gap-x-6 gap-y-2 text-xs text-parchment/40">
+        <span>Atelier is for adults 18+.</span>
+        <Link href="/terms" className="hover:text-gold">
+          Terms of Service &amp; Content Policy
+        </Link>
+        <Link href="/privacy" className="hover:text-gold">
+          Privacy Policy
+        </Link>
+      </footer>
     </main>
   );
 }

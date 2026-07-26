@@ -26,7 +26,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
         if (d.user) {
           setStatus("ok");
         } else {
-          router.replace(`/login?next=${encodeURIComponent(pathname || "/dashboard")}`);
+          router.replace(`/login?next=${encodeURIComponent(pathname || "/explore")}`);
         }
       })
       .catch(() => {
