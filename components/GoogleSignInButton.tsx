@@ -63,7 +63,11 @@ export function GoogleSignInButton({
 
   return (
     <div>
-      <div ref={containerRef} className="flex justify-center" style={{ display: ready ? "flex" : "none" }} />
+      <div
+        ref={containerRef}
+        className="flex justify-center"
+        style={{ display: ready ? "flex" : "none", colorScheme: "light" }}
+      />
       {ready && (
         <div className="flex items-center gap-3 my-5 text-xs text-parchment/40" aria-hidden="true">
           <div className="flex-1 h-px bg-parchment/15" />
