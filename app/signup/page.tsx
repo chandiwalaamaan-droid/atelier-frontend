@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { GoogleCompleteProfile } from "@/components/GoogleCompleteProfile";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -14,6 +16,18 @@ export default function SignupPage() {
   const [tosAccepted, setTosAccepted] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // Set once Google Sign-In reports no account exists yet for that Google
+  // email — swaps the card over to the "finish your profile" step. If an
+  // account already exists (isNewUser: false), that's effectively a login,
+  // so it goes straight to /explore like the rest of this page does.
+  const [googlePending, setGooglePending] = useState<{ credential: string; suggestedDisplayName: string } | null>(
+    null
+  );
+
+  function goToExplore() {
+    router.push("/explore");
+    router.refresh();
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,8 +47,42 @@ export default function SignupPage() {
       setError(data.error || "Something went wrong.");
       return;
     }
-    router.push("/explore");
-    router.refresh();
+    goToExplore();
+  }
+
+  async function onGoogleCredential(credential: string) {
+    setError("");
+    setLoading(true);
+    const res = await apiFetch("/api/auth/google", {
+      method: "POST",
+      body: JSON.stringify({ credential }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setLoading(false);
+    if (!res.ok) {
+      setError(data.error || "Google sign-in failed.");
+      return;
+    }
+    if (data.isNewUser) {
+      setGooglePending({ credential, suggestedDisplayName: data.suggestedDisplayName || "" });
+      return;
+    }
+    goToExplore();
+  }
+
+  if (googlePending) {
+    return (
+      <main className="min-h-screen flex items-center justify-center px-6">
+        <div className="stitched w-full max-w-sm rounded-2xl bg-plum/60 p-8">
+          <h1 className="font-display text-2xl mb-1">Almost there</h1>
+          <GoogleCompleteProfile
+            credential={googlePending.credential}
+            suggestedDisplayName={googlePending.suggestedDisplayName}
+            onDone={goToExplore}
+          />
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -46,6 +94,8 @@ export default function SignupPage() {
         {error && (
           <p className="mb-4 text-sm text-rose bg-rose/10 border border-rose/30 rounded px-3 py-2">{error}</p>
         )}
+
+        <GoogleSignInButton text="signup_with" onCredential={onGoogleCredential} />
 
         <label className="block text-sm mb-1 text-parchment/70">Display name</label>
         <input

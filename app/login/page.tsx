@@ -4,6 +4,8 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { GoogleCompleteProfile } from "@/components/GoogleCompleteProfile";
 
 export default function LoginPage() {
   return (
@@ -20,6 +22,18 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // Set once Google Sign-In reports no account exists yet for that Google
+  // email — swaps the card over to the "finish your profile" step instead
+  // of the normal login form.
+  const [googlePending, setGooglePending] = useState<{ credential: string; suggestedDisplayName: string } | null>(
+    null
+  );
+
+  function goToNext() {
+    const next = searchParams.get("next");
+    router.push(next && next.startsWith("/") ? next : "/explore");
+    router.refresh();
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,9 +51,42 @@ function LoginForm() {
     }
     // Send the user back to whatever page RequireAuth redirected them from
     // (?next=...), falling back to the dashboard if there isn't one.
-    const next = searchParams.get("next");
-    router.push(next && next.startsWith("/") ? next : "/explore");
-    router.refresh();
+    goToNext();
+  }
+
+  async function onGoogleCredential(credential: string) {
+    setError("");
+    setLoading(true);
+    const res = await apiFetch("/api/auth/google", {
+      method: "POST",
+      body: JSON.stringify({ credential }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setLoading(false);
+    if (!res.ok) {
+      setError(data.error || "Google sign-in failed.");
+      return;
+    }
+    if (data.isNewUser) {
+      setGooglePending({ credential, suggestedDisplayName: data.suggestedDisplayName || "" });
+      return;
+    }
+    goToNext();
+  }
+
+  if (googlePending) {
+    return (
+      <main className="min-h-screen flex items-center justify-center px-6">
+        <div className="stitched w-full max-w-sm rounded-2xl bg-plum/60 p-8">
+          <h1 className="font-display text-2xl mb-1">Almost there</h1>
+          <GoogleCompleteProfile
+            credential={googlePending.credential}
+            suggestedDisplayName={googlePending.suggestedDisplayName}
+            onDone={goToNext}
+          />
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -51,6 +98,8 @@ function LoginForm() {
         {error && (
           <p className="mb-4 text-sm text-rose bg-rose/10 border border-rose/30 rounded px-3 py-2">{error}</p>
         )}
+
+        <GoogleSignInButton text="signin_with" onCredential={onGoogleCredential} />
 
         <label className="block text-sm mb-1 text-parchment/70">Email</label>
         <input
