@@ -13,6 +13,7 @@ type Character = {
   tagline: string;
   avatarEmoji: string;
   avatarUrl: string | null;
+  backgroundUrl: string | null;
   accentColor: string;
   personality: string;
   backstory: string;
@@ -47,6 +48,10 @@ export default function EditCharacterPage() {
   const [uploading, setUploading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [imagePrompt, setImagePrompt] = useState("");
+  const [bgUrl, setBgUrl] = useState<string | null>(null);
+  const [bgUploading, setBgUploading] = useState(false);
+  const [bgGenerating, setBgGenerating] = useState(false);
+  const [bgPrompt, setBgPrompt] = useState("");
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -62,6 +67,7 @@ export default function EditCharacterPage() {
         setGreeting(c.greeting);
         setAvatarEmoji(c.avatarEmoji);
         setAvatarUrl(c.avatarUrl);
+        setBgUrl(c.backgroundUrl ?? null);
         setIsExplicit(c.isExplicit ?? false);
         setIsPublic(c.isPublic ?? false);
         setRoleplayNotes(c.roleplayNotes ?? "");
@@ -270,6 +276,102 @@ export default function EditCharacterPage() {
                 {emoji}
               </button>
             ))}
+          </div>
+        </div>
+
+        <div className="stitched rounded-2xl bg-plum/60 p-6 mb-6">
+          <p className="text-sm text-parchment/70 mb-3">Chat Background</p>
+          <div className="flex items-center gap-5">
+            <div
+              className="w-20 h-12 rounded-lg overflow-hidden shrink-0 border border-white/10"
+              style={{ backgroundColor: `${character.accentColor}20` }}
+            >
+              {bgUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={resolveMediaUrl(bgUrl)} alt="Background preview" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xs text-parchment/40 flex items-center justify-center h-full">No bg</span>
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const file = window.prompt("Select background image file (PNG, JPEG, WebP, GIF, up to 5MB).\n\nPaste path or cancel to abort:");
+                    if (!file) return;
+                    setError("");
+                    setBgUploading(true);
+                    const form = new FormData();
+                    form.append("background", file);
+                    const res = await apiFetch(`/api/characters/${params.id}/background`, { method: "POST", body: form });
+                    setBgUploading(false);
+                    if (!res.ok) {
+                      const data = await res.json().catch(() => ({}));
+                      setError(data.error || "Upload failed.");
+                      return;
+                    }
+                    setBgUrl((await res.json()).character.backgroundUrl);
+                  }}
+                  disabled={bgUploading}
+                  className="text-sm border border-parchment/30 px-4 py-1.5 rounded-full hover:border-gold focus-ring disabled:opacity-50"
+                >
+                  {bgUploading ? "Uploading…" : "Upload"}
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setError("");
+                    setBgGenerating(true);
+                    const res = await apiFetch(`/api/characters/${params.id}/background/generate`, {
+                      method: "POST",
+                      body: JSON.stringify({ prompt: bgPrompt.trim() || undefined }),
+                    });
+                    setBgGenerating(false);
+                    if (!res.ok) {
+                      const data = await res.json().catch(() => ({}));
+                      setError(data.error || "Generation failed.");
+                      return;
+                    }
+                    setBgUrl((await res.json()).character.backgroundUrl);
+                  }}
+                  disabled={bgGenerating}
+                  className="text-sm border border-parchment/30 px-4 py-1.5 rounded-full hover:border-gold focus-ring disabled:opacity-50"
+                >
+                  {bgGenerating ? "Generating…" : "Generate with AI"}
+                </button>
+                {bgUrl && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setError("");
+                      const res = await apiFetch(`/api/characters/${params.id}/background`, { method: "DELETE" });
+                      if (!res.ok) {
+                        const data = await res.json().catch(() => ({}));
+                        setError(data.error || "Delete failed.");
+                        return;
+                      }
+                      setBgUrl(null);
+                    }}
+                    className="text-sm text-rose/80 hover:text-rose focus-ring"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-parchment/50">PNG, JPEG, WebP, or GIF, up to 5MB.</p>
+              <label className="block text-xs text-parchment/60 mt-3 mb-1">
+                Custom background prompt
+              </label>
+              <textarea
+                value={bgPrompt}
+                onChange={(e) => setBgPrompt(e.target.value)}
+                rows={2}
+                maxLength={4000}
+                className="w-full rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 text-sm focus-ring"
+                placeholder="Override the default prompt, or leave blank to auto-generate from the character profile."
+              />
+            </div>
           </div>
         </div>
 

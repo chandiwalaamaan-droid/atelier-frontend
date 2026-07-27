@@ -6,6 +6,7 @@ import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { GoogleCompleteProfile } from "@/components/GoogleCompleteProfile";
+import { clearAuthCache } from "@/lib/authCache";
 
 export default function LoginPage() {
   return (
@@ -30,6 +31,7 @@ function LoginForm() {
   );
 
   function goToNext() {
+    clearAuthCache();
     const next = searchParams.get("next");
     router.push(next && next.startsWith("/") ? next : "/explore");
     router.refresh();

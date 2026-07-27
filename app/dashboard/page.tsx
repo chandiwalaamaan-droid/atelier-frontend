@@ -193,8 +193,8 @@ export default function DashboardPage() {
       }),
     });
     setSaving(false);
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
       setError(data.error || "Couldn't create that character.");
       return;
     }
@@ -206,7 +206,14 @@ export default function DashboardPage() {
     setAvatarEmoji("🌸");
     setIsExplicit(false);
     setShowForm(false);
-    loadCharacters();
+    // Avatar upload/generation needs a character id, which doesn't exist
+    // until now — send them straight to the edit page so giving the new
+    // character a portrait is one click away instead of a separate trip.
+    if (data.character?.id) {
+      router.push(`/characters/${data.character.id}/edit`);
+    } else {
+      loadCharacters();
+    }
   }
 
   async function onDelete(id: string) {
@@ -290,7 +297,10 @@ export default function DashboardPage() {
 
       {showForm && (
         <form ref={formRef} onSubmit={onCreate} className="stitched rounded-2xl bg-plum/60 p-8 mb-10 max-w-2xl">
-          <h2 className="font-display text-xl mb-4">Craft a new character</h2>
+          <h2 className="font-display text-xl mb-1">Craft a new character</h2>
+          <p className="text-xs text-parchment/50 mb-4">
+            Pick an emoji for now — you'll be able to upload or AI-generate a portrait right after creating.
+          </p>
           {error && (
             <p className="mb-4 text-sm text-rose bg-rose/10 border border-rose/30 rounded px-3 py-2">{error}</p>
           )}

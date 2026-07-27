@@ -9,6 +9,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import RoleplayModelPicker from "@/components/RoleplayModelPicker";
 import MemoryPanel from "@/components/MemoryPanel";
 import AppShell from "@/components/AppShell";
+import AvatarGenerateModal from "@/components/AvatarGenerateModal";
 import {
   loadRoleplayPreferences,
   saveRoleplayPreferences,
@@ -29,6 +30,7 @@ type Character = {
   tagline: string;
   avatarEmoji: string;
   avatarUrl: string | null;
+  backgroundUrl: string | null;
   accentColor: string;
   greeting: string;
   isExplicit: boolean;
@@ -171,6 +173,7 @@ export default function ChatPage() {
   const [enginePickerOpen, setEnginePickerOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
   const [loadingAudioId, setLoadingAudioId] = useState<string | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [voiceError, setVoiceError] = useState("");
@@ -664,9 +667,12 @@ export default function ChatPage() {
         </button>
         {character && (
           <>
-            <span
-              className="text-xl w-9 h-9 flex items-center justify-center rounded-full overflow-hidden"
+            <button
+              type="button"
+              onClick={() => setAvatarModalOpen(true)}
+              className="text-xl w-9 h-9 flex items-center justify-center rounded-full overflow-hidden focus-ring shrink-0 hover:ring-1 hover:ring-gold/50"
               style={{ backgroundColor: `${character.accentColor}30` }}
+              title="Change portrait"
             >
               {character.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -674,7 +680,7 @@ export default function ChatPage() {
               ) : (
                 character.avatarEmoji
               )}
-            </span>
+            </button>
             <div className="flex-1">
               <p className="font-display">{character.name}</p>
               {character.tagline && <p className="text-xs text-parchment/50">{character.tagline}</p>}
@@ -733,7 +739,12 @@ export default function ChatPage() {
         steering={sending}
       />
 
-      <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto px-6 py-6 md:px-12 space-y-4">
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        className="flex-1 overflow-y-auto px-6 py-6 md:px-12 space-y-4 bg-cover bg-center bg-no-repeat"
+        style={character?.backgroundUrl ? { backgroundImage: `url(${resolveMediaUrl(character.backgroundUrl)})` } : undefined}
+      >
         {character && messages.length === 0 && (
           <>
             <div className="max-w-lg bg-plum/60 rounded-2xl rounded-tl-sm px-4 py-3">
@@ -863,6 +874,18 @@ export default function ChatPage() {
         onConfirm={confirmResetConversation}
         onCancel={() => setResetConfirmOpen(false)}
       />
+
+      {character && (
+        <AvatarGenerateModal
+          open={avatarModalOpen}
+          characterId={character.id}
+          characterName={character.name}
+          isExplicit={character.isExplicit}
+          currentAvatarUrl={character.avatarUrl}
+          onClose={() => setAvatarModalOpen(false)}
+          onUpdated={(avatarUrl) => setCharacter((c) => (c ? { ...c, avatarUrl } : c))}
+        />
+      )}
 
       {character && (
         <MemoryPanel
