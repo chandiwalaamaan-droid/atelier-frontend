@@ -60,13 +60,33 @@ export default function ExplorePage() {
   const [reportNote, setReportNote] = useState("");
   const [reportStatus, setReportStatus] = useState<"idle" | "sending" | "sent">("idle");
   const [reportError, setReportError] = useState("");
+  const [nsfwEnabled, setNsfwEnabled] = useState(false);
+
+  // Load the saved NSFW preference once on mount (browser-only).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setNsfwEnabled(window.localStorage.getItem("atelier_nsfw") === "1");
+  }, []);
+
+  function toggleNsfw() {
+    if (!nsfwEnabled) {
+      const confirmed = window.confirm(
+        "This will show explicit (18+) characters. Continue only if you're an adult and want to see mature content."
+      );
+      if (!confirmed) return;
+    }
+    const next = !nsfwEnabled;
+    setNsfwEnabled(next);
+    window.localStorage.setItem("atelier_nsfw", next ? "1" : "0");
+  }
 
   useEffect(() => {
-    apiFetch("/api/characters/discover")
+    setCharacters(null);
+    apiFetch(`/api/characters/discover${nsfwEnabled ? "?nsfw=1" : ""}`)
       .then(async (r) => (r.ok ? r.json() : Promise.reject()))
       .then((data) => setCharacters(data.characters))
       .catch(() => setCharacters([]));
-  }, []);
+  }, [nsfwEnabled]);
 
   const filtered = useMemo(() => {
     if (!characters) return null;
@@ -171,7 +191,7 @@ export default function ExplorePage() {
                   </button>
                 ))}
               </div>
-              <div className="flex-1 max-w-md ml-auto">
+              <div className="flex-1 max-w-md ml-auto flex items-center gap-2">
                 <input
                   type="search"
                   value={query}
@@ -179,6 +199,19 @@ export default function ExplorePage() {
                   placeholder="Search characters…"
                   className="w-full rounded-full bg-surface-card border border-white/10 px-4 py-2.5 text-sm focus-ring placeholder:text-parchment/30"
                 />
+                <button
+                  type="button"
+                  onClick={toggleNsfw}
+                  aria-pressed={nsfwEnabled}
+                  title={nsfwEnabled ? "Showing 18+ characters — tap to hide" : "Showing SFW only — tap to show 18+ characters"}
+                  className={`shrink-0 px-4 py-2.5 rounded-full text-sm font-medium border transition-colors focus-ring ${
+                    nsfwEnabled
+                      ? "bg-rose/20 border-rose/40 text-rose"
+                      : "bg-surface-card border-white/10 text-parchment/50 hover:text-parchment/80"
+                  }`}
+                >
+                  {nsfwEnabled ? "18+ On" : "18+ Off"}
+                </button>
               </div>
             </div>
 

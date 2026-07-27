@@ -102,7 +102,7 @@ export function parseCharacterEntry(body: unknown, index: number): { entry?: Cha
     ? String(raw.accentColor)
     : "#c9a227";
   const isExplicit = raw.isExplicit === true;
-  const isPublic = raw.isPublic === true && !isExplicit;
+  const isPublic = raw.isPublic === true;
   const roleplayNotes = isExplicit ? clean(raw.roleplayNotes) : "";
 
   if (!name) return { error: `Row ${index + 1}: name is required.` };
