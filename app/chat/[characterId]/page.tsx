@@ -56,6 +56,12 @@ function buildChatBody(
     ...(prefs.explicitMode
       ? { spiceLevel: prefs.spiceLevel, roleplayStyle: prefs.roleplayStyle }
       : {}),
+    // Send the named engine id so the backend can look up its bespoke
+    // voice/pacing directive + temperature (see providers/engines.ts on the
+    // backend) — the actual prompt text and sampling params live there, not
+    // here, so this is just a fixed id, not anything that could inject
+    // arbitrary prompt content.
+    ...(prefs.engineId && prefs.engineId !== "custom" ? { engineId: prefs.engineId } : {}),
   });
 }
 

@@ -52,10 +52,10 @@ export const ROLEPLAY_ENGINES: RoleplayEngine[] = [
     emoji: "🍏",
     badge: 4,
     tag: "Premium",
-    description: "Fast, direct, and precise — flirty banter without slowing down.",
+    description: "Fast, direct, and precise — energetic flirty banter that never slows down.",
     section: "premium",
     spiceLevel: "flirty",
-    roleplayStyle: "dialogue",
+    roleplayStyle: "intense",
   },
   {
     id: "cayenne",
