@@ -13,6 +13,14 @@ export type ExploreCardCharacter = {
   owner?: { displayName: string } | null;
 };
 
+function slugifyAvatar(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `/assets/characters/${slug}.png`;
+}
+
 const TAG_RULES: { tag: string; re: RegExp }[] = [
   { tag: "Romance", re: /romance|love|girlfriend|boyfriend|wife|husband|dating/i },
   { tag: "Drama", re: /drama|conflict|secret|betray/i },
@@ -59,13 +67,27 @@ export default function ExploreCharacterCard({ character: c, onRemix, remixing, 
             className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-500"
           />
         ) : (
-          <div
-            className="w-full h-full flex items-center justify-center text-6xl transition-transform duration-500 group-hover:scale-110"
-            style={{ background: `linear-gradient(160deg, ${c.accentColor}44, #121218)` }}
-          >
-            {c.avatarEmoji}
-          </div>
+          <img
+            src={slugifyAvatar(c.name)}
+            alt={c.name}
+            className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-500"
+            onError={(e) => {
+              const img = e.target as HTMLImageElement;
+              img.style.display = 'none';
+              const parent = img.parentElement;
+              if (parent) {
+                const fallback = parent.querySelector('.emoji-fallback');
+                if (fallback) (fallback as HTMLDivElement).style.display = 'flex';
+              }
+            }}
+          />
         )}
+        <div
+          className="emoji-fallback w-full h-full items-center justify-center text-6xl transition-transform duration-500 group-hover:scale-110 hidden"
+          style={{ background: `linear-gradient(160deg, ${c.accentColor}44, #121218)` }}
+        >
+          {c.avatarEmoji}
+        </div>
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         <span className="absolute top-2 left-2 text-[11px] font-medium px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-sm border border-white/5">
           {pseudoViews(c.id)}

@@ -68,6 +68,11 @@ function buildChatBody(
 // Mirrors MAX_MESSAGE_LENGTH in the backend's routes/chat.ts.
 const MAX_MESSAGE_LENGTH = 4000;
 
+function slugifyAvatar(name: string): string {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return `/assets/characters/${slug}.png`;
+}
+
 function formatTime(iso?: string) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -188,6 +193,8 @@ export default function ChatPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [sceneImage, setSceneImage] = useState<string | null>(null);
+  const [generatingScene, setGeneratingScene] = useState(false);
 
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -684,7 +691,8 @@ export default function ChatPage() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={resolveMediaUrl(character.avatarUrl)} alt={character.name} className="w-full h-full object-cover" />
               ) : (
-                character.avatarEmoji
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={slugifyAvatar(character.name)} alt={character.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
               )}
             </button>
             <div className="flex-1">
@@ -947,7 +955,23 @@ export default function ChatPage() {
         </div>
       )}
 
-      <form onSubmit={onSend} className="flex gap-3 px-6 py-4 border-t border-parchment/10 items-end">
+      {sceneImage && (
+        <div className="px-6 pt-4">
+          <div className="relative max-w-lg mx-auto rounded-2xl overflow-hidden border border-white/10 shadow-lg">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={sceneImage} alt="Scene" className="w-full h-auto object-cover" />
+            <button
+              type="button"
+              onClick={() => setSceneImage(null)}
+              className="absolute top-2 right-2 bg-black/60 text-parchment text-xs px-2 py-1 rounded-full hover:bg-black/80"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={onSend} className="flex gap-2 px-6 py-4 border-t border-parchment/10 items-end">
         <div className="flex-1 relative">
           <textarea
             ref={textareaRef}
@@ -971,6 +995,33 @@ export default function ChatPage() {
             </span>
           )}
         </div>
+        <button
+          type="button"
+          onClick={async () => {
+            if (generatingScene || !character) return;
+            setGeneratingScene(true);
+            setError("");
+            try {
+              const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+              const res = await apiFetch(`/api/characters/${character.id}/image/generate`, {
+                method: "POST",
+                body: JSON.stringify({ prompt: lastAssistant?.content || character.greeting }),
+              });
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(data.error || "Failed to generate scene image");
+              setSceneImage(data.url);
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Couldn't generate scene image.");
+            } finally {
+              setGeneratingScene(false);
+            }
+          }}
+          disabled={generatingScene}
+          title="Generate scene image"
+          className="shrink-0 px-3 py-2.5 rounded-full border border-gold/30 text-gold text-sm font-medium hover:bg-gold/10 focus-ring disabled:opacity-50 transition-colors"
+        >
+          {generatingScene ? "⏳" : "🖼"}
+        </button>
         {sending ? (
           <button
             type="button"

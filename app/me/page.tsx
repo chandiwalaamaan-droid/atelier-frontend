@@ -19,6 +19,11 @@ type Character = {
   isPublic?: boolean;
 };
 
+function slugifyAvatar(name: string): string {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return `/assets/characters/${slug}.png`;
+}
+
 export default function MePage() {
   const router = useRouter();
   const [displayName, setDisplayName] = useState("");
@@ -126,7 +131,8 @@ export default function MePage() {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={resolveMediaUrl(c.avatarUrl)} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          c.avatarEmoji
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={slugifyAvatar(c.name)} alt={c.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                         )}
                       </span>
                       <span className="min-w-0 flex-1">

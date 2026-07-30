@@ -41,6 +41,11 @@ function relativeTime(iso?: string): string | null {
 const EMOJI_CHOICES = ["🌸", "🦊", "🌙", "⚔️", "🕯️", "🐉", "☕", "🌊"];
 const MAX_FIELD_LENGTH = 1200;
 
+function slugifyAvatar(name: string): string {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return `/assets/characters/${slug}.png`;
+}
+
 const STARTER_TEMPLATES = [
   {
     name: "Wren",
@@ -471,7 +476,8 @@ export default function DashboardPage() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={resolveMediaUrl(c.avatarUrl)} alt={c.name} className="w-full h-full object-cover" />
                   ) : (
-                    c.avatarEmoji
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={slugifyAvatar(c.name)} alt={c.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                   )}
                 </span>
                 <div className="flex-1 min-w-0">
