@@ -55,7 +55,7 @@ export default function MePage() {
   return (
     <RequireAuth>
       <AppShell>
-        <div className="flex-1 overflow-y-auto px-4 md:px-10 py-8 max-w-3xl mx-auto w-full">
+        <div className="flex-1 overflow-y-auto px-4 md:px-10 py-8 pb-28 max-w-3xl mx-auto w-full">
           <div className="flex items-start gap-4 mb-8 p-6 rounded-2xl bg-gradient-to-br from-surface-card to-surface-raised border border-white/5">
             <span className="w-20 h-20 rounded-full bg-gradient-to-br from-gold/30 to-plum/50 flex items-center justify-center text-3xl font-display shrink-0 shadow-lg ring-1 ring-white/5">
               {initial}

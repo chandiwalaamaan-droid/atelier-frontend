@@ -60,12 +60,10 @@ export default function ExplorePage() {
   const [reportNote, setReportNote] = useState("");
   const [reportStatus, setReportStatus] = useState<"idle" | "sending" | "sent">("idle");
   const [reportError, setReportError] = useState("");
-  const [nsfwEnabled, setNsfwEnabled] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    setNsfwEnabled(window.localStorage.getItem("atelier_nsfw") === "1");
-  }, []);
+  const [nsfwEnabled, setNsfwEnabled] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("atelier_nsfw") === "1";
+  });
 
   function toggleNsfw() {
     if (!nsfwEnabled) {
@@ -80,11 +78,19 @@ export default function ExplorePage() {
   }
 
   useEffect(() => {
+    let ignore = false;
     setCharacters(null);
     apiFetch(`/api/characters/discover${nsfwEnabled ? "?nsfw=1" : ""}`)
       .then(async (r) => (r.ok ? r.json() : Promise.reject()))
-      .then((data) => setCharacters(data.characters))
-      .catch(() => setCharacters([]));
+      .then((data) => {
+        if (!ignore) setCharacters(data.characters);
+      })
+      .catch(() => {
+        if (!ignore) setCharacters([]);
+      });
+    return () => {
+      ignore = true;
+    };
   }, [nsfwEnabled]);
 
   const filtered = useMemo(() => {
