@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/api";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { GoogleCompleteProfile } from "@/components/GoogleCompleteProfile";
 import { clearAuthCache } from "@/lib/authCache";
+import Logo from "@/components/Logo";
 
 export default function LoginPage() {
   return (
@@ -73,9 +74,9 @@ function LoginForm() {
 
   if (googlePending) {
     return (
-      <main className="min-h-screen flex items-center justify-center px-6 bg-void">
-        <div className="w-full max-w-sm rounded-2xl bg-gradient-to-br from-plum/60 to-plum-deep/80 p-8 border border-gold/20 shadow-2xl shadow-gold/5 animate-scale-in">
-          <h1 className="font-display text-2xl mb-1 gradient-text">Almost there</h1>
+      <main className="min-h-screen flex items-center justify-center px-6 bg-void aurora-bg">
+        <div className="w-full max-w-sm rounded-2xl bg-gradient-to-br from-plum/60 to-plum-deep/80 p-8 border border-gold/20 shadow-2xl shadow-gold/5 animate-scale-in glass-gold">
+          <h1 className="font-display text-2xl mb-1 shimmer-text">Almost there</h1>
           <GoogleCompleteProfile
             credential={googlePending.credential}
             suggestedDisplayName={googlePending.suggestedDisplayName}
@@ -87,20 +88,33 @@ function LoginForm() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-6 bg-void relative overflow-hidden">
+    <main className="min-h-screen flex items-center justify-center px-6 bg-void relative overflow-hidden aurora-bg">
       {/* Background orbs */}
-      <div className="absolute top-[-20%] left-[-10%] w-[400px] h-[400px] rounded-full opacity-[0.03] pointer-events-none" style={{ background: "radial-gradient(circle, #c9a227 0%, transparent 70%)" }} aria-hidden />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[400px] h-[400px] rounded-full opacity-[0.03] pointer-events-none" style={{ background: "radial-gradient(circle, #b5657a 0%, transparent 70%)" }} aria-hidden />
+      <div
+        className="absolute top-[-20%] left-[-10%] w-[400px] h-[400px] rounded-full opacity-[0.05] pointer-events-none"
+        style={{ background: "radial-gradient(circle, #c9a227 0%, transparent 70%)", animation: "float 8s ease-in-out infinite" }}
+        aria-hidden
+      />
+      <div
+        className="absolute bottom-[-20%] right-[-10%] w-[400px] h-[400px] rounded-full opacity-[0.05] pointer-events-none"
+        style={{ background: "radial-gradient(circle, #b5657a 0%, transparent 70%)", animation: "float 8s ease-in-out infinite", animationDelay: "-4s" }}
+        aria-hidden
+      />
+      <div
+        className="absolute top-[30%] right-[20%] w-[250px] h-[250px] rounded-full opacity-[0.03] pointer-events-none"
+        style={{ background: "radial-gradient(circle, #8b5cf6 0%, transparent 70%)", animation: "float 6s ease-in-out infinite", animationDelay: "-2s" }}
+        aria-hidden
+      />
 
-      <form onSubmit={onSubmit} className="relative w-full max-w-sm rounded-2xl bg-gradient-to-br from-plum/60 to-plum-deep/80 p-8 border border-white/5 shadow-2xl animate-scale-in">
+      <form onSubmit={onSubmit} className="relative w-full max-w-sm rounded-2xl bg-gradient-to-br from-plum/60 to-plum-deep/80 p-8 border border-white/5 shadow-2xl animate-scale-in glass-strong">
         <div className="text-center mb-6">
-          <span className="text-3xl mb-2 block">🌸</span>
-          <h1 className="font-display text-2xl gradient-text">Welcome back</h1>
+          <span className="mb-2 block flex justify-center"><Logo size={40} className="animate-bounce-slow" /></span>
+          <h1 className="font-display text-2xl shimmer-text">Welcome back</h1>
           <p className="text-sm text-parchment/50 mt-1">Log in to reach your characters.</p>
         </div>
 
         {error && (
-          <p className="mb-4 text-sm text-rose bg-rose/10 border border-rose/30 rounded-lg px-3 py-2">{error}</p>
+          <p className="mb-4 text-sm text-rose bg-rose/10 border border-rose/30 rounded-lg px-3 py-2 animate-fade-in">{error}</p>
         )}
 
         <GoogleSignInButton text="signin_with" onCredential={onGoogleCredential} />

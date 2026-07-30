@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiFetch, resolveMediaUrl } from "@/lib/api";
 import { EARLY_ACCESS_MESSAGE, PREMIUM_PAYMENTS_ENABLED } from "@/lib/premium";
+import Logo from "@/components/Logo";
 
 type ChatPreview = {
   id: string;
@@ -51,10 +52,10 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
     <div className="min-h-screen flex bg-void text-parchment">
       <aside className="hidden md:flex w-[240px] shrink-0 flex-col border-r border-white/5 bg-gradient-to-b from-surface-raised via-surface-raised to-plum-deep/40">
         <Link href="/explore" className="flex items-center gap-2.5 px-5 py-5 focus-ring rounded-lg mx-2 mt-2 group">
-          <span className="w-10 h-10 rounded-full bg-gradient-to-br from-gold/30 to-gold/10 flex items-center justify-center text-lg shadow-lg shadow-gold/10 group-hover:shadow-gold/20 transition-shadow">
-            🌸
+          <span className="w-10 h-10 rounded-full bg-gradient-to-br from-gold/30 to-gold/10 flex items-center justify-center shadow-lg shadow-gold/10 group-hover:shadow-gold/20 transition-shadow">
+            <Logo size={24} />
           </span>
-          <span className="font-display text-lg tracking-wide gradient-text">Atelier</span>
+          <span className="font-display text-lg tracking-wide shimmer-text">Atelier</span>
         </Link>
 
         <nav className="px-3 mt-3 flex-1">
@@ -143,8 +144,8 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
         {/* Mobile top bar */}
         <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-white/5 bg-gradient-to-r from-surface-raised to-plum-deep/60">
           <Link href="/explore" className="font-display text-lg flex items-center gap-2">
-            <span>🌸</span>
-            <span className="gradient-text">Atelier</span>
+            <Logo size={24} />
+            <span className="shimmer-text">Atelier</span>
           </Link>
           <nav className="flex gap-1 text-xs">
             {NAV.slice(0, 4).map(({ href, label }) => (

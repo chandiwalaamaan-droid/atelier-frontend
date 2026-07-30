@@ -193,7 +193,7 @@ export default function ChatPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
-  const [sceneImage, setSceneImage] = useState<string | null>(null);
+  const [sceneImages, setSceneImages] = useState<{ id: string; url: string; prompt: string }[]>([]);
   const [generatingScene, setGeneratingScene] = useState(false);
 
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -876,6 +876,23 @@ export default function ChatPage() {
             </div>
           );
         })}
+        {/* Scene images displayed inline in the chat */}
+        {sceneImages.map((img) => (
+          <div key={img.id} className="max-w-lg ml-auto rounded-2xl overflow-hidden border border-gold/20 shadow-lg message-bubble">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={img.url.startsWith("http") ? img.url : resolveMediaUrl(img.url)} alt="Generated scene" className="w-full h-auto object-cover" />
+            <div className="px-3 py-2 bg-plum-deep/60 text-xs text-parchment/40 flex items-center justify-between">
+              <span>🎨 AI generated scene</span>
+              <button
+                type="button"
+                onClick={() => setSceneImages((prev) => prev.filter((s) => s.id !== img.id))}
+                className="hover:text-rose transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        ))}
         <div ref={bottomRef} />
       </div>
 
@@ -955,22 +972,6 @@ export default function ChatPage() {
         </div>
       )}
 
-      {sceneImage && (
-        <div className="px-6 pt-4">
-          <div className="relative max-w-lg mx-auto rounded-2xl overflow-hidden border border-white/10 shadow-lg">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={sceneImage} alt="Scene" className="w-full h-auto object-cover" />
-            <button
-              type="button"
-              onClick={() => setSceneImage(null)}
-              className="absolute top-2 right-2 bg-black/60 text-parchment text-xs px-2 py-1 rounded-full hover:bg-black/80"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
-
       <form onSubmit={onSend} className="flex gap-2 px-6 py-4 border-t border-parchment/10 items-end">
         <div className="flex-1 relative">
           <textarea
@@ -1002,14 +1003,18 @@ export default function ChatPage() {
             setGeneratingScene(true);
             setError("");
             try {
+              // Build a rich prompt from conversation context for character continuity
+              const recentMessages = messages.slice(-6).map(m => `${m.role === "user" ? "User" : character.name}: ${m.content}`).join("\n");
               const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+              const scenePrompt = `Character: ${character.name}. ${character.tagline}. Scene: ${lastAssistant?.content || character.greeting}. Conversation context: ${recentMessages}. Unique seed: ${Date.now()}`;
               const res = await apiFetch(`/api/characters/${character.id}/image/generate`, {
                 method: "POST",
-                body: JSON.stringify({ prompt: lastAssistant?.content || character.greeting }),
+                body: JSON.stringify({ prompt: scenePrompt }),
               });
               const data = await res.json().catch(() => ({}));
               if (!res.ok) throw new Error(data.error || "Failed to generate scene image");
-              setSceneImage(data.url);
+              // Add the generated image inline in the chat as a persistent message
+              setSceneImages((prev) => [...prev, { id: `scene-${Date.now()}`, url: data.url, prompt: scenePrompt }]);
             } catch (err) {
               setError(err instanceof Error ? err.message : "Couldn't generate scene image.");
             } finally {
