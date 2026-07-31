@@ -31,5 +31,6 @@ export function apiFetch(path: string, init: RequestInit = {}) {
 export function resolveMediaUrl(url: string | null | undefined): string | undefined {
   if (!url) return undefined;
   if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith("/assets/")) return url;
   return `${API_URL}${url.startsWith("/") ? "" : "/"}${url}`;
 }

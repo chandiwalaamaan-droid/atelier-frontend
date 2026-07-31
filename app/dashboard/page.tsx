@@ -98,6 +98,8 @@ export default function DashboardPage() {
   const [avatarEmoji, setAvatarEmoji] = useState("🌸");
   const [isExplicit, setIsExplicit] = useState(false);
   const [roleplayNotes, setRoleplayNotes] = useState("");
+  const [avatarPrompt, setAvatarPrompt] = useState("");
+  const [scenePromptTemplate, setScenePromptTemplate] = useState("");
   const [draftExplicit, setDraftExplicit] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -190,6 +192,8 @@ export default function DashboardPage() {
         avatarEmoji,
         isExplicit,
         roleplayNotes: isExplicit ? roleplayNotes : "",
+        avatarPrompt,
+        scenePromptTemplate,
       }),
     });
     setSaving(false);
@@ -401,6 +405,28 @@ export default function DashboardPage() {
 
           {!isExplicit && <div className="mb-6" />}
 
+          <label className="block text-sm mb-1.5 text-parchment/60">Appearance description (optional)</label>
+          <textarea
+            value={avatarPrompt}
+            onChange={(e) => setAvatarPrompt(e.target.value.slice(0, MAX_FIELD_LENGTH))}
+            rows={3}
+            className="w-full mb-2 rounded-xl bg-plum-deep/80 border border-white/10 px-4 py-2.5 focus-ring text-sm placeholder:text-parchment/25"
+            placeholder="e.g. mid-20s woman, sharp jawline, silver bob haircut, emerald eyes, worn leather jacket..."
+          />
+          <p className="text-xs text-parchment/40 mb-4">
+            Used as the primary prompt for their avatar, background, and every in-chat scene image, so they stay
+            visually consistent. Leave blank to fall back to personality/tagline.
+          </p>
+
+          <label className="block text-sm mb-1.5 text-parchment/60">Art style / setting (optional)</label>
+          <textarea
+            value={scenePromptTemplate}
+            onChange={(e) => setScenePromptTemplate(e.target.value.slice(0, MAX_FIELD_LENGTH))}
+            rows={2}
+            className="w-full mb-6 rounded-xl bg-plum-deep/80 border border-white/10 px-4 py-2.5 focus-ring text-sm placeholder:text-parchment/25"
+            placeholder="e.g. moody film noir lighting, rain-slicked city streets, muted color palette..."
+          />
+
           <button
             type="submit"
             disabled={saving}
@@ -469,16 +495,17 @@ export default function DashboardPage() {
             <div key={c.id} className="gradient-border rounded-2xl bg-gradient-to-br from-plum/60 to-plum-deep/80 p-6 flex flex-col card-hover">
               <div className="flex items-center gap-3 mb-3">
                 <span
-                  className="text-2xl w-12 h-12 flex items-center justify-center rounded-full overflow-hidden shrink-0 shadow-lg ring-1 ring-white/5"
+                  className="relative text-2xl w-12 h-12 flex items-center justify-center rounded-full overflow-hidden shrink-0 shadow-lg ring-1 ring-white/5"
                   style={{ backgroundColor: `${c.accentColor}30` }}
                 >
-                  {c.avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={resolveMediaUrl(c.avatarUrl)} alt={c.name} className="w-full h-full object-cover" />
-                  ) : (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={slugifyAvatar(c.name)} alt={c.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                  )}
+                  <span className="text-2xl">{c.avatarEmoji}</span>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={c.avatarUrl ? resolveMediaUrl(c.avatarUrl) : slugifyAvatar(c.name)}
+                    alt={c.name}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">

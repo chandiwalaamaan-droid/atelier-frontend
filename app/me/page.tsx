@@ -124,16 +124,17 @@ export default function MePage() {
                       className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-surface-card to-surface-raised border border-white/5 hover:border-gold/20 focus-ring transition-all card-hover"
                     >
                       <span
-                        className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden shrink-0 ring-1 ring-white/5"
+                        className="relative w-12 h-12 rounded-full flex items-center justify-center overflow-hidden shrink-0 ring-1 ring-white/5"
                         style={{ backgroundColor: `${c.accentColor}35` }}
                       >
-                        {c.avatarUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={resolveMediaUrl(c.avatarUrl)} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={slugifyAvatar(c.name)} alt={c.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                        )}
+                        <span className="text-xl">{c.avatarEmoji}</span>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={c.avatarUrl ? resolveMediaUrl(c.avatarUrl) : slugifyAvatar(c.name)}
+                          alt={c.name}
+                          className="absolute inset-0 w-full h-full object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block font-medium truncate">{c.name}</span>

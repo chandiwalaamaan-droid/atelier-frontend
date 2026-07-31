@@ -21,6 +21,8 @@ type Character = {
   isExplicit: boolean;
   isPublic: boolean;
   roleplayNotes?: string;
+  avatarPrompt?: string;
+  scenePromptTemplate?: string;
 };
 
 const EMOJI_CHOICES = ["🌸", "🦊", "🌙", "⚔️", "🕯️", "🐉", "☕", "🌊"];
@@ -29,6 +31,7 @@ export default function EditCharacterPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bgFileInputRef = useRef<HTMLInputElement>(null);
 
   const [character, setCharacter] = useState<Character | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -42,6 +45,8 @@ export default function EditCharacterPage() {
   const [isExplicit, setIsExplicit] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
   const [roleplayNotes, setRoleplayNotes] = useState("");
+  const [avatarPrompt, setAvatarPrompt] = useState("");
+  const [scenePromptTemplate, setScenePromptTemplate] = useState("");
 
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -71,6 +76,8 @@ export default function EditCharacterPage() {
         setIsExplicit(c.isExplicit ?? false);
         setIsPublic(c.isPublic ?? false);
         setRoleplayNotes(c.roleplayNotes ?? "");
+        setAvatarPrompt(c.avatarPrompt ?? "");
+        setScenePromptTemplate(c.scenePromptTemplate ?? "");
       })
       .catch(() => setNotFound(true));
   }, [params.id]);
@@ -92,6 +99,8 @@ export default function EditCharacterPage() {
         isExplicit,
         isPublic,
         roleplayNotes: isExplicit ? roleplayNotes : "",
+        avatarPrompt,
+        scenePromptTemplate,
       }),
     });
     setSaving(false);
@@ -120,6 +129,24 @@ export default function EditCharacterPage() {
     }
     const data = await res.json();
     setAvatarUrl(data.character.avatarUrl);
+  }
+
+  async function onBgUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError("");
+    setBgUploading(true);
+    const form = new FormData();
+    form.append("background", file);
+    const res = await apiFetch(`/api/characters/${params.id}/background`, { method: "POST", body: form });
+    setBgUploading(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "Upload failed.");
+      return;
+    }
+    const data = await res.json();
+    setBgUrl(data.character.backgroundUrl);
   }
 
   async function onGenerate() {
@@ -293,73 +320,65 @@ export default function EditCharacterPage() {
                 <span className="text-xs text-parchment/40 flex items-center justify-center h-full">No bg</span>
               )}
             </div>
-            <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const file = window.prompt("Select background image file (PNG, JPEG, WebP, GIF, up to 5MB).\n\nPaste path or cancel to abort:");
-                    if (!file) return;
-                    setError("");
-                    setBgUploading(true);
-                    const form = new FormData();
-                    form.append("background", file);
-                    const res = await apiFetch(`/api/characters/${params.id}/background`, { method: "POST", body: form });
-                    setBgUploading(false);
-                    if (!res.ok) {
-                      const data = await res.json().catch(() => ({}));
-                      setError(data.error || "Upload failed.");
-                      return;
-                    }
-                    setBgUrl((await res.json()).character.backgroundUrl);
-                  }}
-                  disabled={bgUploading}
-                  className="text-sm border border-parchment/30 px-4 py-1.5 rounded-full hover:border-gold focus-ring disabled:opacity-50"
-                >
-                  {bgUploading ? "Uploading…" : "Upload"}
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setError("");
-                    setBgGenerating(true);
-                    const res = await apiFetch(`/api/characters/${params.id}/background/generate`, {
-                      method: "POST",
-                      body: JSON.stringify({ prompt: bgPrompt.trim() || undefined }),
-                    });
-                    setBgGenerating(false);
-                    if (!res.ok) {
-                      const data = await res.json().catch(() => ({}));
-                      setError(data.error || "Generation failed.");
-                      return;
-                    }
-                    setBgUrl((await res.json()).character.backgroundUrl);
-                  }}
-                  disabled={bgGenerating}
-                  className="text-sm border border-parchment/30 px-4 py-1.5 rounded-full hover:border-gold focus-ring disabled:opacity-50"
-                >
-                  {bgGenerating ? "Generating…" : "Generate with AI"}
-                </button>
-                {bgUrl && (
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => bgFileInputRef.current?.click()}
+                    disabled={bgUploading}
+                    className="text-sm border border-parchment/30 px-4 py-1.5 rounded-full hover:border-gold focus-ring disabled:opacity-50"
+                  >
+                    {bgUploading ? "Uploading…" : "Upload"}
+                  </button>
                   <button
                     type="button"
                     onClick={async () => {
                       setError("");
-                      const res = await apiFetch(`/api/characters/${params.id}/background`, { method: "DELETE" });
+                      setBgGenerating(true);
+                      const res = await apiFetch(`/api/characters/${params.id}/background/generate`, {
+                        method: "POST",
+                        body: JSON.stringify({ prompt: bgPrompt.trim() || undefined }),
+                      });
+                      setBgGenerating(false);
                       if (!res.ok) {
                         const data = await res.json().catch(() => ({}));
-                        setError(data.error || "Delete failed.");
+                        setError(data.error || "Generation failed.");
                         return;
                       }
-                      setBgUrl(null);
+                      setBgUrl((await res.json()).character.backgroundUrl);
                     }}
-                    className="text-sm text-rose/80 hover:text-rose focus-ring"
+                    disabled={bgGenerating}
+                    className="text-sm border border-parchment/30 px-4 py-1.5 rounded-full hover:border-gold focus-ring disabled:opacity-50"
                   >
-                    Remove
+                    {bgGenerating ? "Generating…" : "Generate with AI"}
                   </button>
-                )}
-              </div>
-              <p className="text-xs text-parchment/50">PNG, JPEG, WebP, or GIF, up to 5MB.</p>
+                  {bgUrl && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setError("");
+                        const res = await apiFetch(`/api/characters/${params.id}/background`, { method: "DELETE" });
+                        if (!res.ok) {
+                          const data = await res.json().catch(() => ({}));
+                          setError(data.error || "Delete failed.");
+                          return;
+                        }
+                        setBgUrl(null);
+                      }}
+                      className="text-sm text-rose/80 hover:text-rose focus-ring"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <input
+                  ref={bgFileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={onBgUpload}
+                />
+                <p className="text-xs text-parchment/50">PNG, JPEG, WebP, or GIF, up to 5MB.</p>
               <label className="block text-xs text-parchment/60 mt-3 mb-1">
                 Custom background prompt
               </label>
@@ -469,6 +488,32 @@ export default function EditCharacterPage() {
               />
             </>
           )}
+
+          <label className="block text-sm mb-1 text-parchment/70">Appearance description (optional)</label>
+          <p className="text-xs text-parchment/40 mb-2">
+            Exactly what this character looks like — used as the primary prompt for their avatar, background, and
+            every in-chat scene image, so they stay visually consistent. Leave blank to fall back to personality/tagline.
+          </p>
+          <textarea
+            value={avatarPrompt}
+            onChange={(e) => setAvatarPrompt(e.target.value.slice(0, 2000))}
+            rows={3}
+            className="w-full mb-6 rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring text-sm"
+            placeholder="e.g. mid-20s woman, sharp jawline, silver bob haircut, emerald eyes, wears a worn leather jacket..."
+          />
+
+          <label className="block text-sm mb-1 text-parchment/70">Art style / setting (optional)</label>
+          <p className="text-xs text-parchment/40 mb-2">
+            Reused across every generated scene with this character so the visual style stays consistent from one
+            image to the next.
+          </p>
+          <textarea
+            value={scenePromptTemplate}
+            onChange={(e) => setScenePromptTemplate(e.target.value.slice(0, 2000))}
+            rows={2}
+            className="w-full mb-6 rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring text-sm"
+            placeholder="e.g. moody film noir lighting, rain-slicked city streets, muted color palette..."
+          />
 
           <div className="flex gap-3">
             <button

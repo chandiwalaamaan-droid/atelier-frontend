@@ -43,6 +43,8 @@ type Message = {
   role: "user" | "assistant";
   content: string;
   createdAt?: string;
+  imageUrl?: string;
+  imagePrompt?: string;
 };
 
 const STARTER_PROMPTS = NORMAL_STARTERS;
@@ -174,10 +176,8 @@ export default function ChatPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
-  const [sceneImages, setSceneImages] = useState<{ id: string; url: string; prompt: string }[]>([]);
   const [generatingScene, setGeneratingScene] = useState(false);
-  const [imageGenPrompt, setImageGenPrompt] = useState("");
-  const [showImageGen, setShowImageGen] = useState(false);
+  const generatingSceneRef = useRef(false);
 
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -255,38 +255,116 @@ export default function ChatPage() {
     abortControllerRef.current?.abort();
   }
 
-  async function generateImage(prompt: string) {
-    if (generatingScene || !prompt.trim() || !character) return;
+  function buildContextualImagePrompt(extra?: string): string {
+    if (!character) return extra?.trim() || "";
+
+    const recent = messages
+      .filter((m) => !m.imageUrl && m.content.trim())
+      .slice(-20)
+      .map((m) => `${m.role === "user" ? "User" : character.name}: ${m.content.slice(0, 400)}`)
+      .join("\n");
+
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((m) => m.role === "assistant" && !m.imageUrl && m.content.trim());
+    const lastUser = [...messages]
+      .reverse()
+      .find((m) => m.role === "user" && m.content.trim());
+
+    const scene = lastAssistant?.content || character.greeting;
+    const mood = lastUser?.content || "";
+
+    const parts = [
+      `Cinematic scene of ${character.name}`,
+      character.tagline ? `(${character.tagline})` : "",
+      `Character identity and presence matching their personality.`,
+      `Current scene / story moment: ${scene.slice(0, 600)}`,
+      mood ? `Recent user action / dialogue: ${mood.slice(0, 300)}` : "",
+      recent ? `Conversation context:\n${recent}` : "",
+      extra?.trim() ? `Additional direction: ${extra.trim()}` : "",
+      "Include: environment, lighting, mood, camera angle, clothing, facial expression, important objects.",
+      "Style: cinematic quality, highly detailed, dramatic lighting, professional composition, sharp focus, masterpiece, 8k.",
+      "No text, no watermark, no UI elements.",
+    ];
+
+    return parts.filter(Boolean).join(" ").slice(0, 4000);
+  }
+
+  function buildImageCaption(): string {
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((m) => m.role === "assistant" && !m.imageUrl && m.content.trim());
+    if (lastAssistant) {
+      const sentences = lastAssistant.content.match(/[^.!?]+[.!?]+/g);
+      if (sentences && sentences.length > 0) {
+        return sentences.slice(0, 2).join(" ").trim();
+      }
+    }
+    return "";
+  }
+
+  async function generateImage(extraPrompt = "") {
+    if (generatingScene || generatingSceneRef.current || !character) return;
+    // Allow empty extraPrompt — context is built from the conversation.
+    if (!extraPrompt.trim() && messages.length === 0 && !character.greeting) return;
+
     setError("");
+    generatingSceneRef.current = true;
     setGeneratingScene(true);
-    setShowImageGen(false);
+
+    const placeholderId = `local-${Date.now()}-img`;
+    const placeholder: Message = {
+      id: placeholderId,
+      role: "assistant",
+      content: "",
+      createdAt: new Date().toISOString(),
+    };
+    setMessages((prev: Message[]) => [...prev, placeholder]);
+
+    const contextualPrompt = buildContextualImagePrompt(extraPrompt);
 
     try {
       const res = await apiFetch(`/api/characters/${character.id}/image/generate`, {
         method: "POST",
-        body: JSON.stringify({ prompt: prompt.trim() }),
+        body: JSON.stringify({ prompt: contextualPrompt }),
       });
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed to generate image");
 
       const imageUrl = data.url || data.imageUrl;
-      if (imageUrl) {
-        setSceneImages((prev) => [
-          ...prev,
-          {
-            id: `img-${Date.now()}`,
-            url: imageUrl,
-            prompt: prompt.trim(),
-          },
-        ]);
-        showToast("Image generated! Check below ↓");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate image. Please try again.");
+      if (!imageUrl) throw new Error("No image URL returned.");
+
+      const caption = buildImageCaption();
+
+      // Replace the placeholder with a real assistant image message.
+      setMessages((prev: Message[]) =>
+        prev.map((m) =>
+          m.id === placeholderId
+            ? {
+                ...m,
+                content: caption,
+                imageUrl,
+                imagePrompt: contextualPrompt,
+              }
+            : m
+        )
+      );
+    } catch (_err) {
+      setMessages((prev: Message[]) =>
+        prev.map((m) =>
+          m.id === placeholderId
+            ? {
+                ...m,
+                content: "I couldn't quite capture that scene. Let's try again.",
+              }
+            : m
+        )
+      );
+      setError("Failed to generate image. Please try again.");
     } finally {
       setGeneratingScene(false);
-      setImageGenPrompt("");
+      generatingSceneRef.current = false;
     }
   }
 
@@ -432,7 +510,8 @@ export default function ChatPage() {
   async function onRegenerate() {
     if (sending || messages.length === 0) return;
     const last = messages[messages.length - 1];
-    if (last.role !== "assistant") return;
+    // Image messages are not text replies — don't try to regenerate them via chat stream.
+    if (last.role !== "assistant" || last.imageUrl) return;
     const previousContent = last.content;
 
     setError("");
@@ -683,23 +762,20 @@ export default function ChatPage() {
                 <button
                   type="button"
                   onClick={() => setAvatarModalOpen(true)}
-                  className="text-xl w-9 h-9 flex items-center justify-center rounded-full overflow-hidden focus-ring shrink-0 hover:ring-2 hover:ring-gold/50 transition-all shadow-lg"
+                  className="relative text-xl w-9 h-9 flex items-center justify-center rounded-full overflow-hidden focus-ring shrink-0 hover:ring-2 hover:ring-gold/50 transition-all shadow-lg"
                   style={{ backgroundColor: `${character.accentColor}30` }}
                   title="Change portrait"
                 >
-                  {character.avatarUrl ? (
-                    <img src={resolveMediaUrl(character.avatarUrl)} alt={character.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <img
-                      src={slugifyAvatar(character.name)}
-                      alt={character.name}
-                      className="w-full h-full object-cover"
-                      onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = "none";
-                      }}
-                    />
-                  )}
+                  <span className="text-xl">{character.avatarEmoji}</span>
+                  <img
+                    src={character.avatarUrl ? resolveMediaUrl(character.avatarUrl) : slugifyAvatar(character.name)}
+                    alt={character.name}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = "none";
+                    }}
+                  />
                 </button>
                 <div className="flex-1">
                   <p className="font-display text-lg">{character.name}</p>
@@ -786,8 +862,54 @@ export default function ChatPage() {
             )}
             {messages.map((m: Message, i: number) => {
               const isLastAssistant = m.role === "assistant" && i === messages.length - 1;
-              const isStreamingEmpty = isLastAssistant && sending && !m.content;
+              const isStreamingEmpty = isLastAssistant && sending && !m.content && !m.imageUrl;
+              const isImageGenerating = isLastAssistant && generatingScene && !m.imageUrl && !m.content;
               const isEditing = editingId === m.id;
+
+              // Image assistant message (or generating placeholder for one)
+              if (m.role === "assistant" && (m.imageUrl || isImageGenerating) && !isEditing) {
+                return (
+                  <div key={m.id} className="group">
+                    <div
+                      aria-live={isLastAssistant ? "polite" : undefined}
+                      className="max-w-lg bg-plum/60 rounded-2xl rounded-tl-sm overflow-hidden"
+                    >
+                      {m.imageUrl ? (
+                        <img
+                          src={m.imageUrl.startsWith("http") ? m.imageUrl : resolveMediaUrl(m.imageUrl)}
+                          alt={m.imagePrompt || "Generated scene"}
+                          className="w-full h-auto object-cover max-h-96"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="aspect-video flex items-center justify-center bg-plum-deep/40">
+                          <span className="inline-flex gap-1" aria-label="Generating image">
+                            <span className="typing-dot w-1.5 h-1.5 rounded-full bg-parchment/60 inline-block" />
+                            <span className="typing-dot w-1.5 h-1.5 rounded-full bg-parchment/60 inline-block" />
+                            <span className="typing-dot w-1.5 h-1.5 rounded-full bg-parchment/60 inline-block" />
+                          </span>
+                        </div>
+                      )}
+                      {m.content && (
+                        <div className="px-4 py-3 whitespace-pre-wrap">
+                          {renderMessageContent(m.content)}
+                        </div>
+                      )}
+                    </div>
+                    {(m.content || m.imageUrl) && (
+                      <div className="flex items-center gap-3 mt-1 text-xs text-parchment/40 opacity-0 group-hover:opacity-100 transition-opacity justify-start pl-1">
+                        {m.createdAt && <span className="select-none">{formatTime(m.createdAt)}</span>}
+                        {m.content && (
+                          <button onClick={() => onCopy(m.id, m.content)} className="hover:text-gold focus-ring rounded">
+                            {copiedId === m.id ? "Copied" : "Copy"}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
               return (
                 <div key={m.id} className="group">
                   {isEditing ? (
@@ -872,7 +994,7 @@ export default function ChatPage() {
                           Edit
                         </button>
                       )}
-                      {isLastAssistant && !sending && (
+                      {isLastAssistant && !sending && !m.imageUrl && (
                         <button onClick={onRegenerate} className="hover:text-gold focus-ring rounded">
                           Regenerate
                         </button>
@@ -883,66 +1005,6 @@ export default function ChatPage() {
               );
             })}
 
-            {/* Scene images - enhanced UI similar to Character.AI */}
-            {sceneImages.map((img: { id: string; url: string; prompt: string }) => (
-              <div key={img.id} className="max-w-lg ml-auto rounded-2xl overflow-hidden border border-gold/20 shadow-lg backdrop-blur-sm bg-plum-deep/20 group/img-container">
-                <div className="relative">
-                  <img
-                    src={img.url.startsWith("http") ? img.url : resolveMediaUrl(img.url)}
-                    alt={img.prompt || "Generated scene"}
-                    className="w-full h-auto object-cover"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover/img-container:opacity-100 transition-opacity" />
-                </div>
-                <div className="px-3 py-2 bg-plum-deep/80 text-xs text-parchment/60 flex items-center justify-between gap-2">
-                  <span className="truncate flex-1" title={img.prompt}>
-                    🎨 {img.prompt || "AI generated scene"}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const link = document.createElement("a");
-                        link.href = img.url.startsWith("http") ? img.url : (resolveMediaUrl(img.url) || img.url);
-                        link.download = `generated-${img.id}.png`;
-                        link.target = "_blank";
-                        link.rel = "noopener noreferrer";
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                      }}
-                      className="hover:text-gold transition-colors"
-                      title="Download image"
-                    >
-                      ⬇
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSceneImages((prev) => prev.filter((s) => s.id !== img.id))}
-                      className="hover:text-rose transition-colors"
-                      title="Remove"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {/* Generating indicator - enhanced with animation */}
-            {generatingScene && (
-              <div className="max-w-lg ml-auto rounded-2xl overflow-hidden border border-gold/30 shadow-lg backdrop-blur-sm bg-plum-deep/30">
-                <div className="aspect-video bg-plum-deep/50 flex items-center justify-center relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-br from-gold/5 to-transparent animate-pulse" />
-                  <div className="text-center relative z-10">
-                    <div className="text-5xl mb-3 animate-bounce">🎨</div>
-                    <p className="text-sm text-parchment font-medium">Creating your image...</p>
-                    <p className="text-xs text-parchment/50 mt-1">Powered by AI • This may take a moment</p>
-                  </div>
-                </div>
-              </div>
-            )}
 
             <div ref={bottomRef} />
           </div>
@@ -978,78 +1040,17 @@ export default function ChatPage() {
             />
           )}
 
-          {/* Quick action buttons - inspired by ChatGPT */}
           {messages.length > 0 && !sending && !generatingScene && (
             <div className="px-6 py-2 flex justify-center gap-3">
               <button
                 type="button"
-                onClick={() => setShowImageGen(!showImageGen)}
+                onClick={() => generateImage()}
                 className="text-xs text-parchment/60 hover:text-gold focus-ring rounded px-3 py-1.5 border border-parchment/15 hover:border-gold/40 transition-all"
-                title="Generate an image"
+                title="Generate a scene image from the current conversation"
               >
                 🎨 Generate Image
               </button>
             </div>
-          )}
-
-          {/* Image generation panel - slide up panel */}
-          {showImageGen && (
-            <div className="px-6 py-3 bg-plum-deep/90 backdrop-blur-md border-t border-gold/20 animate-slide-up">
-              <div className="flex gap-2 items-end max-w-2xl mx-auto">
-                <div className="flex-1">
-                  <label className="block text-xs text-parchment/60 mb-1">
-                    ✨ Generate Image
-                  </label>
-                  <textarea
-                    value={imageGenPrompt}
-                    onChange={(e) => setImageGenPrompt(e.target.value)}
-                    placeholder="Describe the scene or character... (or use /imagine or /draw in chat)"
-                    rows={2}
-                    className="w-full rounded-lg bg-plum border border-parchment/20 px-3 py-2 text-sm focus-ring resize-none"
-                    onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        generateImage(imageGenPrompt);
-                      }
-                    }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => generateImage(imageGenPrompt)}
-                  disabled={generatingScene || !imageGenPrompt.trim()}
-                  className="px-4 py-2 bg-gold text-ink rounded-lg font-medium hover:brightness-110 focus-ring disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  {generatingScene ? (
-                    <span className="flex items-center gap-2">
-                      <span className="animate-spin">⏳</span>
-                      Generating...
-                    </span>
-                  ) : (
-                    "✨ Generate"
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowImageGen(false)}
-                  className="px-3 py-2 text-parchment/60 hover:text-parchment focus-ring rounded-lg"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Floating image generation button */}
-          {!showImageGen && !generatingScene && (
-            <button
-              type="button"
-              onClick={() => setShowImageGen(true)}
-              className="absolute bottom-20 right-6 w-12 h-12 rounded-full bg-gradient-to-br from-gold to-gold/80 text-ink hover:from-gold hover:to-gold focus-ring shadow-xl transition-all hover:scale-110 z-10 flex items-center justify-center text-xl font-bold"
-              title="Generate image (or type /imagine in chat)"
-            >
-              ✏️
-            </button>
           )}
 
           <audio ref={audioElRef} onEnded={() => setPlayingId(null)} className="hidden" />
@@ -1105,7 +1106,7 @@ export default function ChatPage() {
                   autoResize();
                 }}
                 onKeyDown={onKeyDown}
-                placeholder="Say something… or use /imagine or /draw to generate images (Shift+Enter for new line)"
+                placeholder="Say something… (Shift+Enter for new line)"
                 rows={1}
                 className="w-full rounded-2xl bg-plum-deep border border-parchment/20 px-4 py-2.5 focus-ring resize-none max-h-40 overflow-y-auto"
               />
@@ -1119,35 +1120,6 @@ export default function ChatPage() {
                 </span>
               )}
             </div>
-            <button
-              type="button"
-              onClick={async () => {
-                if (generatingScene || !character) return;
-                setGeneratingScene(true);
-                setError("");
-                try {
-                  const recentMessages = messages.slice(-6).map(m => `${m.role === "user" ? "User" : character.name}: ${m.content}`).join("\n");
-                  const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-                  const scenePrompt = `Character: ${character.name}. ${character.tagline}. Scene: ${lastAssistant?.content || character.greeting}. Context: ${recentMessages}. Seed: ${Date.now()}`;
-                  const res = await apiFetch(`/api/characters/${character.id}/image/generate`, {
-                    method: "POST",
-                    body: JSON.stringify({ prompt: scenePrompt }),
-                  });
-                  const data = await res.json().catch(() => ({}));
-                  if (!res.ok) throw new Error(data.error || "Failed to generate scene image");
-                  setSceneImages((prev) => [...prev, { id: `scene-${Date.now()}`, url: data.url || data.imageUrl, prompt: scenePrompt }]);
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : "Couldn't generate scene image.");
-                } finally {
-                  setGeneratingScene(false);
-                }
-              }}
-              disabled={generatingScene}
-              title="Generate scene image"
-              className="shrink-0 px-3 py-2.5 rounded-full border border-gold/30 text-gold text-sm font-medium hover:bg-gold/10 focus-ring disabled:opacity-50 transition-colors"
-            >
-              {generatingScene ? "⏳" : "🖼"}
-            </button>
             {sending ? (
               <button
                 type="button"
