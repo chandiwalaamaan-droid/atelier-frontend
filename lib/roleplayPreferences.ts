@@ -26,7 +26,10 @@ function storageKey(characterId: string) {
 function defaultPrefs(characterIsExplicit: boolean): RoleplayPreferences {
   const engine = ROLEPLAY_ENGINES.find((e) =>
     characterIsExplicit ? e.id === "grape" : e.id === "vanilla"
-  )!;
+  );
+  if (!engine) {
+    return { ...DEFAULTS, engineId: "custom" };
+  }
   return { ...applyEngine(engine), engineId: engine.id };
 }
 

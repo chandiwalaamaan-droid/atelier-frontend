@@ -53,13 +53,14 @@ function buildChatBody(
   prefs: RoleplayPreferences,
   payload: Record<string, unknown>
 ): string {
+  const engineSelected = Boolean(prefs.engineId && prefs.engineId !== "custom");
   return JSON.stringify({
     ...payload,
     explicitMode: prefs.explicitMode,
-    ...(prefs.explicitMode
+    ...(engineSelected ? { engineId: prefs.engineId } : {}),
+    ...(engineSelected || prefs.explicitMode
       ? { spiceLevel: prefs.spiceLevel, roleplayStyle: prefs.roleplayStyle }
       : {}),
-    ...(prefs.engineId && prefs.engineId !== "custom" ? { engineId: prefs.engineId } : {}),
   });
 }
 

@@ -60,7 +60,7 @@ function EngineCard({
   onSelect: () => void;
   onToggleFineTune: () => void;
   prefs: RoleplayPreferences;
-  onPatch: (patch: Partial<RoleplayPreferences>) => void;
+  onPatch: (patch: Partial<RoleplayPreferences>, engineId: RoleplayEngineId) => void;
 }) {
   return (
     <div className="space-y-2">
@@ -111,7 +111,7 @@ function EngineCard({
                 <button
                   key={level}
                   type="button"
-                  onClick={() => onPatch({ spiceLevel: level })}
+                  onClick={() => onPatch({ spiceLevel: level }, engine.id)}
                   className={`text-xs rounded-full px-2.5 py-1 border focus-ring ${
                     prefs.spiceLevel === level
                       ? "bg-rose/25 border-rose/60 text-parchment"
@@ -130,7 +130,7 @@ function EngineCard({
                 <button
                   key={style}
                   type="button"
-                  onClick={() => onPatch({ roleplayStyle: style })}
+                  onClick={() => onPatch({ roleplayStyle: style }, engine.id)}
                   className={`text-xs rounded-full px-2.5 py-1 border focus-ring ${
                     prefs.roleplayStyle === style
                       ? "bg-gold/15 border-gold/50 text-parchment"
@@ -210,11 +210,10 @@ export default function RoleplayModelPicker({
     setFineTuneEngineId(engine.id);
   }
 
-  function patchPrefs(patch: Partial<RoleplayPreferences>) {
+  function patchPrefs(patch: Partial<RoleplayPreferences>, engineId: RoleplayEngineId) {
     const next = { ...prefs, ...patch };
-    onApply(next, "custom");
+    onApply(next, engineId);
   }
-
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal aria-labelledby="engine-picker-title">
       <button
