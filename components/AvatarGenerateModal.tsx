@@ -67,11 +67,13 @@ export default function AvatarGenerateModal({
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       setError(data.error || "Upload failed.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
     const data = await res.json();
     setPreview(data.character.avatarUrl);
     onUpdated(data.character.avatarUrl);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   async function onGenerate() {

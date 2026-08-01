@@ -28,7 +28,7 @@ type Character = {
 const EMOJI_CHOICES = ["🌸", "🦊", "🌙", "⚔️", "🕯️", "🐉", "☕", "🌊"];
 
 export default function EditCharacterPage() {
-  const params = useParams<{ id: string }>();
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bgFileInputRef = useRef<HTMLInputElement>(null);
@@ -60,7 +60,7 @@ export default function EditCharacterPage() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    apiFetch(`/api/characters/${params.id}`)
+    apiFetch(`/api/characters/${id}`)
       .then(async (r) => (r.ok ? r.json() : Promise.reject()))
       .then((data) => {
         const c: Character = data.character;
@@ -80,14 +80,14 @@ export default function EditCharacterPage() {
         setScenePromptTemplate(c.scenePromptTemplate ?? "");
       })
       .catch(() => setNotFound(true));
-  }, [params.id]);
+  }, [id]);
 
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setSaving(true);
     setSaved(false);
-    const res = await apiFetch(`/api/characters/${params.id}`, {
+    const res = await apiFetch(`/api/characters/${id}`, {
       method: "PUT",
       body: JSON.stringify({
         name,
@@ -120,7 +120,7 @@ export default function EditCharacterPage() {
     setUploading(true);
     const form = new FormData();
     form.append("avatar", file);
-    const res = await apiFetch(`/api/characters/${params.id}/avatar`, { method: "POST", body: form });
+    const res = await apiFetch(`/api/characters/${id}/avatar`, { method: "POST", body: form });
     setUploading(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -138,7 +138,7 @@ export default function EditCharacterPage() {
     setBgUploading(true);
     const form = new FormData();
     form.append("background", file);
-    const res = await apiFetch(`/api/characters/${params.id}/background`, { method: "POST", body: form });
+    const res = await apiFetch(`/api/characters/${id}/background`, { method: "POST", body: form });
     setBgUploading(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -152,7 +152,7 @@ export default function EditCharacterPage() {
   async function onGenerate() {
     setError("");
     setGenerating(true);
-    const res = await apiFetch(`/api/characters/${params.id}/avatar/generate`, {
+    const res = await apiFetch(`/api/characters/${id}/avatar/generate`, {
       method: "POST",
       body: JSON.stringify({ prompt: imagePrompt.trim() || undefined }),
     });
@@ -335,7 +335,7 @@ export default function EditCharacterPage() {
                     onClick={async () => {
                       setError("");
                       setBgGenerating(true);
-                      const res = await apiFetch(`/api/characters/${params.id}/background/generate`, {
+                      const res = await apiFetch(`/api/characters/${id}/background/generate`, {
                         method: "POST",
                         body: JSON.stringify({ prompt: bgPrompt.trim() || undefined }),
                       });
@@ -357,7 +357,7 @@ export default function EditCharacterPage() {
                       type="button"
                       onClick={async () => {
                         setError("");
-                        const res = await apiFetch(`/api/characters/${params.id}/background`, { method: "DELETE" });
+                        const res = await apiFetch(`/api/characters/${id}/background`, { method: "DELETE" });
                         if (!res.ok) {
                           const data = await res.json().catch(() => ({}));
                           setError(data.error || "Delete failed.");

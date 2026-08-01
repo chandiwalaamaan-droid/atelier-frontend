@@ -36,10 +36,11 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
 
   useEffect(() => {
     apiFetch("/api/auth/me")
-      .then((r) => r.json())
-      .then((d) => setDisplayName(d.user?.displayName ?? ""));
+      .then((r) => r.json().catch(() => ({})))
+      .then((d) => setDisplayName(d.user?.displayName ?? ""))
+      .catch(() => {});
     apiFetch("/api/characters")
-      .then((r) => (r.ok ? r.json() : { characters: [] }))
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => {
         const list = (d.characters ?? []) as ChatPreview[];
         const withPreview = list.filter((c) => c.lastMessagePreview);

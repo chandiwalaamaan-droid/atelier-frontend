@@ -119,9 +119,17 @@ export default function DashboardPage() {
   }, []);
 
   async function loadCharacters() {
-    const res = await apiFetch("/api/characters");
-    const data = await res.json();
-    setCharacters(data.characters ?? []);
+    try {
+      const res = await apiFetch("/api/characters");
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setCharacters(data.characters ?? []);
+      } else {
+        setError(data.error || "Couldn't load characters.");
+      }
+    } catch {
+      setError("Couldn't reach the server. Please try again.");
+    }
   }
 
   async function onUseTemplate(template: (typeof STARTER_TEMPLATES)[number]) {

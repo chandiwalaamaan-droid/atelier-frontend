@@ -149,7 +149,7 @@ function extractEvents(buffer: string): { segments: StreamSegment[]; rest: strin
 }
 
 export default function ChatPage() {
-  const params = useParams<{ characterId: string }>();
+  const { characterId } = useParams<{ characterId: string }>();
   const router = useRouter();
   const [character, setCharacter] = useState<Character | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -162,7 +162,7 @@ export default function ChatPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
   const [roleplayPrefs, setRoleplayPrefs] = useState<RoleplayPreferences>(() =>
-    loadRoleplayPreferences(params.characterId, false)
+    characterId ? loadRoleplayPreferences(characterId, false) : loadRoleplayPreferences("", false)
   );
   const [enginePickerOpen, setEnginePickerOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
@@ -186,7 +186,7 @@ export default function ChatPage() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    apiFetch(`/api/chat/${params.characterId}`)
+    apiFetch(`/api/chat/${characterId}`)
       .then(async (r) => {
         if (!r.ok) {
           setNotFound(true);
@@ -198,10 +198,10 @@ export default function ChatPage() {
         if (!data) return;
         setCharacter(data.character);
         setMessages(data.messages);
-        const prefs = loadRoleplayPreferences(params.characterId, data.character.isExplicit ?? false);
+        const prefs = loadRoleplayPreferences(characterId, data.character.isExplicit ?? false);
         setRoleplayPrefs(prefs);
       });
-  }, [params.characterId]);
+  }, [characterId]);
 
   useEffect(() => {
     if (!character) return;
@@ -244,7 +244,7 @@ export default function ChatPage() {
     el.style.height = Math.min(el.scrollHeight, 160) + "px";
   }
 
-  const lastActionRef = useRef<{ type: "send"; text: string } | { type: "regenerate" } | null>(null);
+  const lastActionRef = useRef<{ type: "send"; text: string; sceneDirective?: string } | { type: "regenerate" } | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   function isAbortError(err: unknown) {
@@ -430,7 +430,7 @@ export default function ChatPage() {
     abortControllerRef.current = controller;
 
     try {
-      const res = await apiFetch(`/api/chat/${params.characterId}`, {
+      const res = await apiFetch(`/api/chat/${characterId}`, {
         method: "POST",
         body: buildChatBody(roleplayPrefs, {
           message: userText,
@@ -469,7 +469,7 @@ export default function ChatPage() {
     abortControllerRef.current = controller;
 
     try {
-      const res = await apiFetch(`/api/chat/${params.characterId}`, {
+      const res = await apiFetch(`/api/chat/${characterId}`, {
         method: "POST",
         body: buildChatBody(roleplayPrefs, { regenerate: true }),
         signal: controller.signal,
@@ -525,7 +525,7 @@ export default function ChatPage() {
     abortControllerRef.current = controller;
 
     try {
-      const res = await apiFetch(`/api/chat/${params.characterId}`, {
+      const res = await apiFetch(`/api/chat/${characterId}`, {
         method: "POST",
         body: buildChatBody(roleplayPrefs, { regenerate: true }),
         signal: controller.signal,
@@ -557,7 +557,7 @@ export default function ChatPage() {
     setResetConfirmOpen(false);
     setResetting(true);
     try {
-      await apiFetch(`/api/chat/${params.characterId}`, { method: "DELETE" });
+      await apiFetch(`/api/chat/${characterId}`, { method: "DELETE" });
       setMessages([]);
       setError("");
     } finally {
@@ -600,7 +600,7 @@ export default function ChatPage() {
     abortControllerRef.current = controller;
 
     try {
-      const res = await apiFetch(`/api/chat/${params.characterId}`, {
+      const res = await apiFetch(`/api/chat/${characterId}`, {
         method: "POST",
         body: buildChatBody(roleplayPrefs, { editMessageId: id, editContent: newContent }),
         signal: controller.signal,
@@ -652,7 +652,7 @@ export default function ChatPage() {
 
     setLoadingAudioId(id);
     try {
-      const res = await apiFetch(`/api/chat/${params.characterId}/speak`, {
+      const res = await apiFetch(`/api/chat/${characterId}/speak`, {
         method: "POST",
         body: JSON.stringify({ text: content }),
       });
