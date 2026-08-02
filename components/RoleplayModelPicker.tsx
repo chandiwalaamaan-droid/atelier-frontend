@@ -65,8 +65,10 @@ function EngineCard({
   return (
     <div className="space-y-2">
       <div
-        className={`engine-card flex items-center gap-3 w-full text-left rounded-2xl border px-3 py-2.5 transition-colors ${
-          selected ? "engine-card-selected border-parchment/50 bg-plum-deep/80" : "border-parchment/12 bg-plum/50 hover:border-parchment/25"
+        className={`engine-card flex items-center gap-3 w-full text-left rounded-2xl border px-3 py-2.5 transition-all duration-200 ${
+          selected
+            ? "engine-card-selected border-gold/30 bg-plum-deep/80 shadow-lg shadow-gold/5"
+            : "border-parchment/12 bg-plum/50 hover:border-parchment/25 hover:bg-plum/70"
         }`}
       >
         <button type="button" onClick={onSelect} className="flex flex-1 items-center gap-3 min-w-0 focus-ring rounded-xl">
@@ -84,7 +86,7 @@ function EngineCard({
                 {engine.badge}
               </span>
               {engine.tag && (
-                <span className="text-[10px] uppercase tracking-wide text-parchment/45">{engine.tag}</span>
+                <span className="text-[10px] uppercase tracking-wide text-gold/70 font-medium">{engine.tag}</span>
               )}
             </span>
             <span className="block text-xs text-parchment/55 truncate mt-0.5">{engine.description}</span>
@@ -93,8 +95,8 @@ function EngineCard({
         <button
           type="button"
           onClick={onToggleFineTune}
-          className={`shrink-0 p-2 rounded-lg focus-ring ${
-            fineTuneOpen ? "text-gold bg-gold/10" : "text-parchment/40 hover:text-parchment/70"
+          className={`shrink-0 p-2 rounded-lg focus-ring transition-all ${
+            fineTuneOpen ? "text-gold bg-gold/10 rotate-180" : "text-parchment/40 hover:text-parchment/70 hover:bg-white/5"
           }`}
           title="Fine-tune heat and style"
           aria-label={`Fine-tune ${engine.name}`}
@@ -103,19 +105,19 @@ function EngineCard({
         </button>
       </div>
       {selected && fineTuneOpen && (
-        <div className="ml-14 mr-1 space-y-3 pb-1">
+        <div className="ml-14 mr-1 space-y-3 pb-1 animate-fade-in">
           <div>
-            <p className="text-[11px] text-parchment/45 mb-1.5">Heat</p>
+            <p className="text-[11px] text-parchment/45 mb-1.5 font-medium uppercase tracking-wider">Heat</p>
             <div className="flex flex-wrap gap-1.5">
               {(Object.keys(SPICE_LEVEL_LABELS) as SpiceLevel[]).map((level) => (
                 <button
                   key={level}
                   type="button"
                   onClick={() => onPatch({ spiceLevel: level }, engine.id)}
-                  className={`text-xs rounded-full px-2.5 py-1 border focus-ring ${
+                  className={`text-xs rounded-full px-2.5 py-1 border focus-ring transition-all ${
                     prefs.spiceLevel === level
-                      ? "bg-rose/25 border-rose/60 text-parchment"
-                      : "border-parchment/15 text-parchment/60 hover:border-rose/35"
+                      ? "bg-rose/25 border-rose/60 text-parchment shadow-md shadow-rose/10"
+                      : "border-parchment/15 text-parchment/60 hover:border-rose/35 hover:bg-rose/5"
                   }`}
                 >
                   {SPICE_LEVEL_LABELS[level]}
@@ -124,17 +126,17 @@ function EngineCard({
             </div>
           </div>
           <div>
-            <p className="text-[11px] text-parchment/45 mb-1.5">Writing style</p>
+            <p className="text-[11px] text-parchment/45 mb-1.5 font-medium uppercase tracking-wider">Writing style</p>
             <div className="flex flex-wrap gap-1.5">
               {(Object.keys(ROLEPLAY_STYLE_LABELS) as RoleplayStyle[]).map((style) => (
                 <button
                   key={style}
                   type="button"
                   onClick={() => onPatch({ roleplayStyle: style }, engine.id)}
-                  className={`text-xs rounded-full px-2.5 py-1 border focus-ring ${
+                  className={`text-xs rounded-full px-2.5 py-1 border focus-ring transition-all ${
                     prefs.roleplayStyle === style
-                      ? "bg-gold/15 border-gold/50 text-parchment"
-                      : "border-parchment/15 text-parchment/60 hover:border-gold/35"
+                      ? "bg-gold/15 border-gold/50 text-parchment shadow-md shadow-gold/10"
+                      : "border-parchment/15 text-parchment/60 hover:border-gold/35 hover:bg-gold/5"
                   }`}
                 >
                   {ROLEPLAY_STYLE_LABELS[style]}

@@ -1,7 +1,7 @@
 "use client";
 
 /// <reference types="react" />
-import { useEffect, useRef, useState, useCallback, type ReactNode, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, useCallback, type ReactNode, type FormEvent, type KeyboardEvent, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "@/lib/api";
@@ -43,11 +43,33 @@ type Message = {
   role: "user" | "assistant";
   content: string;
   createdAt?: string;
-  imageUrl?: string;
-  imagePrompt?: string;
 };
 
+type Reaction = { emoji: string; count: number; reacted: boolean };
+
+type ChatTheme = "midnight" | "aurora" | "ember";
+
 const STARTER_PROMPTS = NORMAL_STARTERS;
+
+const CHAT_THEMES: { id: ChatTheme; label: string; emoji: string }[] = [
+  { id: "midnight", label: "Midnight", emoji: "🌙" },
+  { id: "aurora", label: "Aurora", emoji: "🌌" },
+  { id: "ember", label: "Ember", emoji: "🔥" },
+];
+
+const REACTION_EMOJIS = ["❤️", "🔥", "😂", "😮", "😢"];
+
+function getChatTheme(): ChatTheme {
+  if (typeof window === "undefined") return "midnight";
+  const stored = localStorage.getItem("atelier:chat:theme");
+  if (stored === "midnight" || stored === "aurora" || stored === "ember") return stored;
+  return "midnight";
+}
+
+function saveChatTheme(theme: ChatTheme) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("atelier:chat:theme", theme);
+}
 
 function buildChatBody(
   prefs: RoleplayPreferences,
@@ -90,7 +112,7 @@ function renderMessageContent(text: string): ReactNode {
 
 function renderInline(line: string): ReactNode[] {
   const nodes: ReactNode[] = [];
-  const pattern = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)/g;
+  const pattern = /(`[^`]*`)|(\*\*[^*]*\*\*)|(\*[^*]*\*)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -149,6 +171,17 @@ function extractEvents(buffer: string): { segments: StreamSegment[]; rest: strin
   return { segments, rest };
 }
 
+function getSmartReplies(messages: Message[], characterName: string): string[] {
+  const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+  if (!lastAssistant) return [`Tell me about yourself, ${characterName}.`, "What brings you here?", "Let's start an adventure."];
+  
+  const msgCount = messages.length;
+  if (msgCount <= 2) return ["Tell me more about yourself.", "What's your favorite thing to do?", "That's interesting, go on."];
+  if (msgCount <= 5) return ["I'd love to hear more.", "What happened next?", "You're fascinating."];
+  if (msgCount <= 10) return ["I'm really enjoying this.", "Tell me something unexpected.", "I could listen to you all day."];
+  return ["I feel like I'm getting to know you.", "This is special.", "I don't want this to end."];
+}
+
 export default function ChatPage() {
   const { characterId } = useParams<{ characterId: string }>();
   const router = useRouter();
@@ -177,18 +210,31 @@ export default function ChatPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
-  const [generatingScene, setGeneratingScene] = useState(false);
-  const generatingSceneRef = useRef(false);
+  const [theme, setTheme] = useState<ChatTheme>(getChatTheme);
+  const [reactions, setReactions] = useState<Map<string, Reaction[]>>(new Map());
+  const [showQuickActions, setShowQuickActions] = useState(false);
+  const [relationshipLevel, setRelationshipLevel] = useState(0);
 
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const quickActionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    apiFetch(`/api/chat/${characterId}`)
+    document.documentElement.setAttribute("data-chat-theme", theme);
+    saveChatTheme(theme);
+  }, [theme]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    apiFetch(`/api/chat/${characterId}`, { signal: controller.signal })
       .then(async (r) => {
+        if (r.status === 401) {
+          router.replace(`/login?next=/chat/${characterId}`);
+          return null;
+        }
         if (!r.ok) {
           setNotFound(true);
           return null;
@@ -201,13 +247,26 @@ export default function ChatPage() {
         setMessages(data.messages);
         const prefs = loadRoleplayPreferences(characterId, data.character.isExplicit ?? false);
         setRoleplayPrefs(prefs);
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        console.error("Failed to load chat:", err);
       });
+    return () => controller.abort();
   }, [characterId]);
 
   useEffect(() => {
     if (!character) return;
     saveRoleplayPreferences(character.id, roleplayPrefs);
   }, [character, roleplayPrefs]);
+
+  useEffect(() => {
+    const msgs = messages.length;
+    const explicit = roleplayPrefs.explicitMode;
+    let level = Math.min(100, Math.floor((msgs / 50) * 100));
+    if (explicit) level = Math.min(100, level + 15);
+    setRelationshipLevel(level);
+  }, [messages.length, roleplayPrefs.explicitMode]);
 
   function applyEnginePrefs(prefs: RoleplayPreferences, engineId: RoleplayEngineId) {
     setRoleplayPrefs({ ...prefs, engineId });
@@ -254,119 +313,6 @@ export default function ChatPage() {
 
   function stopGenerating() {
     abortControllerRef.current?.abort();
-  }
-
-  function buildContextualImagePrompt(extra?: string): string {
-    if (!character) return extra?.trim() || "";
-
-    const recent = messages
-      .filter((m) => !m.imageUrl && m.content.trim())
-      .slice(-20)
-      .map((m) => `${m.role === "user" ? "User" : character.name}: ${m.content.slice(0, 400)}`)
-      .join("\n");
-
-    const lastAssistant = [...messages]
-      .reverse()
-      .find((m) => m.role === "assistant" && !m.imageUrl && m.content.trim());
-    const lastUser = [...messages]
-      .reverse()
-      .find((m) => m.role === "user" && m.content.trim());
-
-    const scene = lastAssistant?.content || character.greeting;
-    const mood = lastUser?.content || "";
-
-    const parts = [
-      `Cinematic scene of ${character.name}`,
-      character.tagline ? `(${character.tagline})` : "",
-      `Character identity and presence matching their personality.`,
-      `Current scene / story moment: ${scene.slice(0, 600)}`,
-      mood ? `Recent user action / dialogue: ${mood.slice(0, 300)}` : "",
-      recent ? `Conversation context:\n${recent}` : "",
-      extra?.trim() ? `Additional direction: ${extra.trim()}` : "",
-      "Include: environment, lighting, mood, camera angle, clothing, facial expression, important objects.",
-      "Style: cinematic quality, highly detailed, dramatic lighting, professional composition, sharp focus, masterpiece, 8k.",
-      "No text, no watermark, no UI elements.",
-    ];
-
-    return parts.filter(Boolean).join(" ").slice(0, 4000);
-  }
-
-  function buildImageCaption(): string {
-    const lastAssistant = [...messages]
-      .reverse()
-      .find((m) => m.role === "assistant" && !m.imageUrl && m.content.trim());
-    if (lastAssistant) {
-      const sentences = lastAssistant.content.match(/[^.!?]+[.!?]+/g);
-      if (sentences && sentences.length > 0) {
-        return sentences.slice(0, 2).join(" ").trim();
-      }
-    }
-    return "";
-  }
-
-  async function generateImage(extraPrompt = "") {
-    if (generatingScene || generatingSceneRef.current || !character) return;
-    // Allow empty extraPrompt — context is built from the conversation.
-    if (!extraPrompt.trim() && messages.length === 0 && !character.greeting) return;
-
-    setError("");
-    generatingSceneRef.current = true;
-    setGeneratingScene(true);
-
-    const placeholderId = `local-${Date.now()}-img`;
-    const placeholder: Message = {
-      id: placeholderId,
-      role: "assistant",
-      content: "",
-      createdAt: new Date().toISOString(),
-    };
-    setMessages((prev: Message[]) => [...prev, placeholder]);
-
-    const contextualPrompt = buildContextualImagePrompt(extraPrompt);
-
-    try {
-      const res = await apiFetch(`/api/characters/${character.id}/image/generate`, {
-        method: "POST",
-        body: JSON.stringify({ prompt: contextualPrompt }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Failed to generate image");
-
-      const imageUrl = data.url || data.imageUrl;
-      if (!imageUrl) throw new Error("No image URL returned.");
-
-      const caption = buildImageCaption();
-
-      // Replace the placeholder with a real assistant image message.
-      setMessages((prev: Message[]) =>
-        prev.map((m) =>
-          m.id === placeholderId
-            ? {
-                ...m,
-                content: caption,
-                imageUrl,
-                imagePrompt: contextualPrompt,
-              }
-            : m
-        )
-      );
-    } catch (_err) {
-      setMessages((prev: Message[]) =>
-        prev.map((m) =>
-          m.id === placeholderId
-            ? {
-                ...m,
-                content: "I couldn't quite capture that scene. Let's try again.",
-              }
-            : m
-        )
-      );
-      setError("Failed to generate image. Please try again.");
-    } finally {
-      setGeneratingScene(false);
-      generatingSceneRef.current = false;
-    }
   }
 
   async function runStream(
@@ -493,16 +439,7 @@ export default function ChatPage() {
     e.preventDefault();
     if (!input.trim() || sending) return;
 
-    const trimmedInput = input.trim();
-    if (trimmedInput.startsWith("/imagine ") || trimmedInput.startsWith("/draw ")) {
-      const prompt = trimmedInput.replace(/^\/(?:imagine|draw)\s+/, "");
-      setInput("");
-      if (textareaRef.current) textareaRef.current.style.height = "auto";
-      await generateImage(prompt);
-      return;
-    }
-
-    const userText = trimmedInput;
+    const userText = input.trim();
     setInput("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
     await sendMessage(userText);
@@ -511,8 +448,7 @@ export default function ChatPage() {
   async function onRegenerate() {
     if (sending || messages.length === 0) return;
     const last = messages[messages.length - 1];
-    // Image messages are not text replies — don't try to regenerate them via chat stream.
-    if (last.role !== "assistant" || last.imageUrl) return;
+    if (last.role !== "assistant") return;
     const previousContent = last.content;
 
     setError("");
@@ -664,7 +600,13 @@ export default function ChatPage() {
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      audioCacheRef.current.set(id, url);
+      const cache = audioCacheRef.current;
+      cache.set(id, url);
+      if (cache.size > 20) {
+        const oldest = cache.keys().next().value!;
+        URL.revokeObjectURL(cache.get(oldest)!);
+        cache.delete(oldest);
+      }
       audioEl.src = url;
       audioEl.play().catch(() => {
         setVoiceError("Failed to play audio.");
@@ -695,6 +637,31 @@ export default function ChatPage() {
     }
   }
 
+  function toggleReaction(messageId: string, emoji: string) {
+    setReactions((prev) => {
+      const next = new Map(prev);
+      const msgReactions = next.get(messageId) || [];
+      const existing = msgReactions.find((r) => r.emoji === emoji);
+      if (existing) {
+        if (existing.reacted) {
+          next.set(
+            messageId,
+            msgReactions.map((r) => r.emoji === emoji ? { ...r, count: r.count - 1, reacted: false } : r)
+              .filter((r) => r.count > 0)
+          );
+        } else {
+          next.set(
+            messageId,
+            msgReactions.map((r) => r.emoji === emoji ? { ...r, count: r.count + 1, reacted: true } : r)
+          );
+        }
+      } else {
+        next.set(messageId, [...msgReactions, { emoji, count: 1, reacted: true }]);
+      }
+      return next;
+    });
+  }
+
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -711,6 +678,8 @@ export default function ChatPage() {
       }
     }
   }
+
+  const smartReplies = useMemo(() => getSmartReplies(messages, character?.name || "Character"), [messages, character?.name]);
 
   if (notFound) {
     return (
@@ -754,34 +723,61 @@ export default function ChatPage() {
     <RequireAuth>
       <AppShell variant="chat">
         <main className="flex-1 flex flex-col min-h-0 relative">
+          {/* Header */}
           <header className="flex items-center gap-3 px-4 md:px-6 py-3 border-b border-white/10 shrink-0 bg-gradient-to-r from-surface-raised to-plum-deep/30">
             <button onClick={() => router.push("/explore")} className="text-parchment/60 hover:text-gold focus-ring rounded px-2 transition-colors">
               ←
             </button>
             {character && (
               <>
-                <button
-                  type="button"
-                  onClick={() => setAvatarModalOpen(true)}
-                  className="relative text-xl w-9 h-9 flex items-center justify-center rounded-full overflow-hidden focus-ring shrink-0 hover:ring-2 hover:ring-gold/50 transition-all shadow-lg"
-                  style={{ backgroundColor: `${character.accentColor}30` }}
-                  title="Change portrait"
-                >
-                  <span className="text-xl">{character.avatarEmoji}</span>
-                  <img
-                    src={character.avatarUrl ? resolveMediaUrl(character.avatarUrl) : slugifyAvatar(character.name)}
-                    alt={character.name}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = "none";
-                    }}
-                  />
-                </button>
+                <div className="avatar-ring-animated relative text-xl w-9 h-9 flex items-center justify-center rounded-full overflow-hidden focus-ring shrink-0 cursor-pointer" style={{ "--ring-color": `${character.accentColor}80` } as React.CSSProperties}>
+                  <button
+                    type="button"
+                    onClick={() => setAvatarModalOpen(true)}
+                    className="relative text-xl w-9 h-9 flex items-center justify-center rounded-full overflow-hidden focus-ring shrink-0 shadow-lg"
+                    style={{ backgroundColor: `${character.accentColor}30` }}
+                    title="Change portrait"
+                  >
+                    <span className="text-xl">{character.avatarEmoji}</span>
+                    <img
+                      src={character.avatarUrl ? resolveMediaUrl(character.avatarUrl) : slugifyAvatar(character.name)}
+                      alt={character.name}
+                      className="absolute inset-0 w-full h-full object-cover"
+                      onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = "none";
+                      }}
+                    />
+                  </button>
+                </div>
                 <div className="flex-1">
                   <p className="font-display text-lg">{character.name}</p>
                   {character.tagline && <p className="text-xs text-parchment/50">{character.tagline}</p>}
                 </div>
+
+                {/* Relationship Meter */}
+                <div className="relationship-meter hidden sm:flex" title={`Relationship level: ${relationshipLevel}%`}>
+                  <span>💖</span>
+                  <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div className="relationship-meter-fill h-full rounded-full" style={{ width: `${relationshipLevel}%` }} />
+                  </div>
+                </div>
+
+                {/* Theme Toggle */}
+                <div className="hidden md:flex items-center gap-1">
+                  {CHAT_THEMES.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setTheme(t.id)}
+                      className={`theme-toggle-btn ${theme === t.id ? "border-gold/40 text-gold" : ""}`}
+                      title={`${t.label} theme`}
+                      aria-label={`Switch to ${t.label} theme`}
+                    >
+                      {t.emoji}
+                    </button>
+                  ))}
+                </div>
+
                 <button
                   type="button"
                   onClick={() => setEnginePickerOpen(true)}
@@ -836,15 +832,16 @@ export default function ChatPage() {
             steering={sending}
           />
 
+          {/* Messages Area */}
           <div
             ref={scrollRef}
             onScroll={onScroll}
-            className="flex-1 overflow-y-auto px-6 py-6 md:px-12 space-y-4 bg-cover bg-center bg-no-repeat"
+            className="flex-1 overflow-y-auto px-4 md:px-12 py-6 space-y-4 bg-cover bg-center bg-no-repeat"
             style={character?.backgroundUrl ? { backgroundImage: `url(${resolveMediaUrl(character.backgroundUrl)})` } : undefined}
           >
             {character && messages.length === 0 && (
               <>
-                <div className="max-w-lg bg-plum/60 rounded-2xl rounded-tl-sm px-4 py-3">
+                <div className="max-w-lg chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 message-slide-in">
                   {character.greeting}
                 </div>
                 <div className="flex flex-wrap gap-2 pt-1">
@@ -853,8 +850,9 @@ export default function ChatPage() {
                       key={prompt}
                       onClick={() => sendMessage(prompt)}
                       disabled={sending}
-                      className="text-sm text-parchment/70 hover:text-gold border border-parchment/15 hover:border-gold/40 rounded-full px-3 py-1.5 focus-ring disabled:opacity-40"
+                      className="starter-prompt-card"
                     >
+                      <span className="text-sm">✨</span>
                       {prompt}
                     </button>
                   ))}
@@ -863,56 +861,13 @@ export default function ChatPage() {
             )}
             {messages.map((m: Message, i: number) => {
               const isLastAssistant = m.role === "assistant" && i === messages.length - 1;
-              const isStreamingEmpty = isLastAssistant && sending && !m.content && !m.imageUrl;
-              const isImageGenerating = isLastAssistant && generatingScene && !m.imageUrl && !m.content;
+              const isStreamingEmpty = isLastAssistant && sending && !m.content;
               const isEditing = editingId === m.id;
-
-              // Image assistant message (or generating placeholder for one)
-              if (m.role === "assistant" && (m.imageUrl || isImageGenerating) && !isEditing) {
-                return (
-                  <div key={m.id} className="group">
-                    <div
-                      aria-live={isLastAssistant ? "polite" : undefined}
-                      className="max-w-lg bg-plum/60 rounded-2xl rounded-tl-sm overflow-hidden"
-                    >
-                      {m.imageUrl ? (
-                        <img
-                          src={m.imageUrl.startsWith("http") ? m.imageUrl : resolveMediaUrl(m.imageUrl)}
-                          alt={m.imagePrompt || "Generated scene"}
-                          className="w-full h-auto object-cover max-h-96"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="aspect-video flex items-center justify-center bg-plum-deep/40">
-                          <span className="inline-flex gap-1" aria-label="Generating image">
-                            <span className="typing-dot w-1.5 h-1.5 rounded-full bg-parchment/60 inline-block" />
-                            <span className="typing-dot w-1.5 h-1.5 rounded-full bg-parchment/60 inline-block" />
-                            <span className="typing-dot w-1.5 h-1.5 rounded-full bg-parchment/60 inline-block" />
-                          </span>
-                        </div>
-                      )}
-                      {m.content && (
-                        <div className="px-4 py-3 whitespace-pre-wrap">
-                          {renderMessageContent(m.content)}
-                        </div>
-                      )}
-                    </div>
-                    {(m.content || m.imageUrl) && (
-                      <div className="flex items-center gap-3 mt-1 text-xs text-parchment/40 opacity-0 group-hover:opacity-100 transition-opacity justify-start pl-1">
-                        {m.createdAt && <span className="select-none">{formatTime(m.createdAt)}</span>}
-                        {m.content && (
-                          <button onClick={() => onCopy(m.id, m.content)} className="hover:text-gold focus-ring rounded">
-                            {copiedId === m.id ? "Copied" : "Copy"}
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              }
+              const msgReactions = reactions.get(m.id) || [];
+              const lastMsgReactions = isLastAssistant ? msgReactions : [];
 
               return (
-                <div key={m.id} className="group">
+                <div key={m.id} className="group message-slide-in">
                   {isEditing ? (
                     <div className="max-w-lg ml-auto rounded-2xl rounded-tr-sm bg-gold/10 border border-gold/40 p-3">
                       <textarea
@@ -955,24 +910,47 @@ export default function ChatPage() {
                       aria-live={isLastAssistant ? "polite" : undefined}
                       className={`max-w-lg px-4 py-3 rounded-2xl whitespace-pre-wrap ${
                         m.role === "user"
-                          ? "bg-gold text-ink ml-auto rounded-tr-sm"
-                          : "bg-plum/60 rounded-tl-sm"
+                          ? "chat-bubble-user ml-auto rounded-tr-sm"
+                          : "chat-bubble-assistant rounded-tl-sm"
                       }`}
                     >
                       {isStreamingEmpty ? (
-                        <span className="inline-flex gap-1" aria-label="Character is typing">
-                          <span className="typing-dot w-1.5 h-1.5 rounded-full bg-parchment/60 inline-block" />
-                          <span className="typing-dot w-1.5 h-1.5 rounded-full bg-parchment/60 inline-block" />
-                          <span className="typing-dot w-1.5 h-1.5 rounded-full bg-parchment/60 inline-block" />
-                        </span>
+                        <div className="typing-indicator-enhanced">
+                          <span className="text-xs text-parchment/60 mr-1">{character.name} is typing</span>
+                          <span className="typing-indicator-dot" />
+                          <span className="typing-indicator-dot" />
+                          <span className="typing-indicator-dot" />
+                        </div>
                       ) : (
                         renderMessageContent(m.content)
                       )}
                     </div>
                   )}
+
+                  {/* Reactions */}
+                  {m.content && !isEditing && (
+                    <div className={`flex flex-wrap items-center gap-1.5 mt-1.5 ${m.role === "user" ? "justify-end pr-1" : "justify-start pl-1"}`}>
+                      {REACTION_EMOJIS.map((emoji) => {
+                        const existing = msgReactions.find((r) => r.emoji === emoji);
+                        return (
+                          <button
+                            key={emoji}
+                            onClick={() => toggleReaction(m.id, emoji)}
+                            className={`reaction-btn ${existing?.reacted ? "reacted" : ""}`}
+                            aria-label={`React with ${emoji}${existing ? ` (${existing.count})` : ""}`}
+                          >
+                            {emoji}
+                            {existing && existing.count > 0 && <span className="text-[10px] font-medium">{existing.count}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Actions */}
                   {m.content && !isEditing && (
                     <div
-                      className={`flex items-center gap-3 mt-1 text-xs text-parchment/40 opacity-0 group-hover:opacity-100 transition-opacity ${
+                      className={`flex items-center gap-3 mt-1.5 text-xs text-parchment/40 opacity-0 group-hover:opacity-100 transition-opacity ${
                         m.role === "user" ? "justify-end pr-1" : "justify-start pl-1"
                       }`}
                     >
@@ -995,7 +973,7 @@ export default function ChatPage() {
                           Edit
                         </button>
                       )}
-                      {isLastAssistant && !sending && !m.imageUrl && (
+                      {isLastAssistant && !sending && (
                         <button onClick={onRegenerate} className="hover:text-gold focus-ring rounded">
                           Regenerate
                         </button>
@@ -1006,9 +984,83 @@ export default function ChatPage() {
               );
             })}
 
+            {/* Smart Reply Suggestions */}
+            {!sending && messages.length > 0 && (
+              <div className="flex flex-wrap gap-2 pt-2 message-slide-in">
+                {smartReplies.slice(0, 3).map((reply, i) => (
+                  <button
+                    key={i}
+                    onClick={() => sendMessage(reply)}
+                    className="reply-chip"
+                  >
+                    <span className="text-sm">💬</span>
+                    {reply}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div ref={bottomRef} />
           </div>
+
+          {/* Quick Actions Bar */}
+          {showQuickActions && (
+            <div ref={quickActionsRef} className="px-4 md:px-12 pb-2">
+              <div className="quick-actions-bar max-w-3xl mx-auto">
+                <button
+                  onClick={() => setShowQuickActions(false)}
+                  className="quick-action-btn"
+                  title="Close quick actions"
+                >
+                  ✕
+                </button>
+                <div className="w-px h-5 bg-parchment/10" />
+                <button
+                  onClick={onRegenerate}
+                  disabled={sending || messages.length === 0}
+                  className="quick-action-btn"
+                  title="Regenerate last reply"
+                >
+                  🔄
+                </button>
+                <button
+                  onClick={() => {
+                    const last = messages[messages.length - 1];
+                    if (last?.content) onCopy(last.id, last.content);
+                  }}
+                  disabled={messages.length === 0}
+                  className="quick-action-btn"
+                  title="Copy last message"
+                >
+                  📋
+                </button>
+                <button
+                  onClick={() => {
+                    const last = messages[messages.length - 1];
+                    if (last?.content && last.role === "assistant") onSpeak(last.id, last.content);
+                  }}
+                  disabled={messages.length === 0}
+                  className="quick-action-btn"
+                  title="Speak last message"
+                >
+                  🔊
+                </button>
+                <button
+                  onClick={() => {
+                    if (messages.length > 0) {
+                      const last = messages[messages.length - 1];
+                      if (last?.role === "assistant") toggleReaction(last.id, "❤️");
+                    }
+                  }}
+                  disabled={messages.length === 0}
+                  className="quick-action-btn"
+                  title="Quick react"
+                >
+                  ❤️
+                </button>
+              </div>
+            </div>
+          )}
 
           <ConfirmDialog
             open={resetConfirmOpen}
@@ -1041,19 +1093,6 @@ export default function ChatPage() {
             />
           )}
 
-          {messages.length > 0 && !sending && !generatingScene && (
-            <div className="px-6 py-2 flex justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => generateImage()}
-                className="text-xs text-parchment/60 hover:text-gold focus-ring rounded px-3 py-1.5 border border-parchment/15 hover:border-gold/40 transition-all"
-                title="Generate a scene image from the current conversation"
-              >
-                🎨 Generate Image
-              </button>
-            </div>
-          )}
-
           <audio ref={audioElRef} onEnded={() => setPlayingId(null)} className="hidden" />
 
           {voiceError && (
@@ -1067,7 +1106,7 @@ export default function ChatPage() {
           {showJump && (
             <button
               onClick={() => scrollToBottom()}
-              className="absolute bottom-24 left-1/2 -translate-x-1/2 bg-plum-deep border border-parchment/20 text-sm px-4 py-1.5 rounded-full hover:border-gold focus-ring shadow-lg z-20"
+              className="scroll-jump-btn"
             >
               ↓ Jump to latest
             </button>
@@ -1097,7 +1136,7 @@ export default function ChatPage() {
             </div>
           )}
 
-          <form onSubmit={onSend} className="flex gap-2 px-6 py-4 border-t border-parchment/10 items-end">
+          <form onSubmit={onSend} className="flex gap-2 px-4 md:px-6 py-4 border-t border-parchment/10 items-end">
             <div className="flex-1 relative">
               <textarea
                 ref={textareaRef}
@@ -1121,23 +1160,34 @@ export default function ChatPage() {
                 </span>
               )}
             </div>
-            {sending ? (
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={stopGenerating}
-                className="bg-rose/90 text-ink px-5 py-2.5 rounded-full font-medium hover:brightness-110 focus-ring shrink-0"
+                onClick={() => setShowQuickActions((s) => !s)}
+                className="text-parchment/50 hover:text-parchment/80 focus-ring rounded px-2 py-2.5 transition-colors"
+                title="Quick actions"
+                aria-label="Toggle quick actions"
               >
-                ■ Stop
+                ⚡
               </button>
-            ) : (
-              <button
-                type="submit"
-                disabled={!input.trim()}
-                className="bg-gold text-ink px-5 py-2.5 rounded-full font-medium hover:brightness-110 focus-ring disabled:opacity-50 shrink-0"
-              >
-                Send
-              </button>
-            )}
+              {sending ? (
+                <button
+                  type="button"
+                  onClick={stopGenerating}
+                  className="bg-rose/90 text-ink px-5 py-2.5 rounded-full font-medium hover:brightness-110 focus-ring shrink-0"
+                >
+                  ■ Stop
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!input.trim()}
+                  className="bg-gold text-ink px-5 py-2.5 rounded-full font-medium hover:brightness-110 focus-ring disabled:opacity-50 shrink-0"
+                >
+                  Send
+                </button>
+              )}
+            </div>
           </form>
         </main>
       </AppShell>

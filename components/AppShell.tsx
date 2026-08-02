@@ -51,15 +51,17 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
 
   return (
     <div className="min-h-screen flex bg-void text-parchment">
-      <aside className="hidden md:flex w-[240px] shrink-0 flex-col border-r border-white/5 bg-gradient-to-b from-surface-raised via-surface-raised to-plum-deep/40">
-        <Link href="/explore" className="flex items-center gap-2.5 px-5 py-5 focus-ring rounded-lg mx-2 mt-2 group">
-          <span className="w-10 h-10 rounded-full bg-gradient-to-br from-gold/30 to-gold/10 flex items-center justify-center shadow-lg shadow-gold/10 group-hover:shadow-gold/20 transition-shadow">
+      <aside className="hidden md:flex w-[260px] shrink-0 flex-col border-r border-white/5 bg-gradient-to-b from-surface-raised via-surface-raised to-plum-deep/40 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-gold/5 to-transparent opacity-30 pointer-events-none" />
+        
+        <Link href="/explore" className="flex items-center gap-2.5 px-5 py-5 focus-ring rounded-lg mx-2 mt-2 group relative">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold/30 to-gold/10 flex items-center justify-center shadow-lg shadow-gold/10 group-hover:shadow-gold/20 group-hover:scale-105 transition-all duration-300">
             <Logo size={24} />
-          </span>
+          </div>
           <span className="font-display text-lg tracking-wide shimmer-text">Atelier</span>
         </Link>
 
-        <nav className="px-3 mt-3 flex-1">
+        <nav className="px-3 mt-3 flex-1 relative">
           <div className="space-y-0.5">
             {NAV.map(({ href, label, icon, badge }) => {
               const active = pathname === href || (href === "/dashboard" && pathname?.startsWith("/characters"));
@@ -67,16 +69,19 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
                 <Link
                   key={href}
                   href={href}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 focus-ring ${
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 focus-ring relative overflow-hidden ${
                     active
-                      ? "bg-gradient-to-r from-gold/15 to-gold/5 text-parchment font-medium border border-gold/10"
-                      : "text-parchment/55 hover:text-parchment hover:bg-white/5"
+                      ? "bg-gradient-to-r from-gold/15 to-gold/5 text-parchment font-medium border border-gold/10 shadow-lg shadow-gold/5"
+                      : "text-parchment/55 hover:text-parchment hover:bg-white/5 border border-transparent"
                   }`}
                 >
-                  <span className={`w-5 text-center text-base ${active ? "text-gold" : "opacity-80"}`}>{icon}</span>
-                  <span className="flex-1">{label}</span>
+                  {active && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-gold/10 to-transparent opacity-50" />
+                  )}
+                  <span className={`w-5 text-center text-base relative ${active ? "text-gold" : "opacity-80"}`}>{icon}</span>
+                  <span className="flex-1 relative">{label}</span>
                   {badge && (
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gold/25 text-gold border border-gold/30">
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gold/25 text-gold border border-gold/30 relative">
                       {badge}
                     </span>
                   )}
@@ -100,14 +105,14 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
               <Link
                 key={c.id}
                 href={`/chat/${c.id}`}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs transition-all duration-200 focus-ring ${
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs transition-all duration-200 focus-ring border ${
                   pathname === `/chat/${c.id}`
-                    ? "bg-white/8 border border-white/5"
-                    : "hover:bg-white/5 border border-transparent"
+                    ? "bg-white/8 border-white/5 shadow-lg shadow-black/20"
+                    : "hover:bg-white/5 border-transparent"
                 }`}
               >
                 <span
-                  className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center overflow-hidden text-sm ring-1 ring-white/5"
+                  className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center overflow-hidden text-sm ring-1 ring-white/5 shadow-md"
                   style={{ backgroundColor: `${c.accentColor}30` }}
                 >
                   {c.avatarUrl ? (
@@ -126,12 +131,12 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
           </div>
         </nav>
 
-        <div className="p-4 border-t border-white/5 mt-auto">
+        <div className="p-4 border-t border-white/5 mt-auto relative">
           {!PREMIUM_PAYMENTS_ENABLED && (
             <p className="text-[10px] text-parchment/30 leading-snug mb-3 italic">{EARLY_ACCESS_MESSAGE}</p>
           )}
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gold/30 to-plum/50 flex items-center justify-center text-xs">
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gold/30 to-plum/50 flex items-center justify-center text-xs shadow-md">
               ◉
             </div>
             <p className="text-xs text-parchment/50 truncate" title={displayName}>

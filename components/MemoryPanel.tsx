@@ -90,11 +90,14 @@ export default function MemoryPanel({ open, characterId, characterName, onClose 
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/70 px-6" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="stitched w-full max-w-lg rounded-2xl bg-plum-deep border border-parchment/20 p-6 shadow-2xl max-h-[80vh] flex flex-col"
+        className="glass-panel w-full max-w-lg rounded-2xl p-6 shadow-2xl max-h-[80vh] flex flex-col message-slide-in"
       >
         <div className="flex items-center justify-between mb-1">
-          <p className="font-display text-lg">What {characterName} remembers</p>
-          <button onClick={onClose} className="text-parchment/50 hover:text-gold focus-ring rounded px-1">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🧠</span>
+            <p className="font-display text-lg gradient-text">What {characterName} remembers</p>
+          </div>
+          <button onClick={onClose} className="text-parchment/50 hover:text-gold focus-ring rounded px-1 text-lg" aria-label="Close memory panel">
             ✕
           </button>
         </div>
@@ -107,10 +110,11 @@ export default function MemoryPanel({ open, characterId, characterName, onClose 
         {error && <p className="mb-3 text-sm text-rose bg-rose/10 border border-rose/30 rounded px-3 py-2">{error}</p>}
 
         {loading ? (
-          <div className="animate-pulse space-y-2 flex-1">
-            <div className="h-4 w-full rounded bg-parchment/10" />
-            <div className="h-4 w-5/6 rounded bg-parchment/10" />
-            <div className="h-4 w-2/3 rounded bg-parchment/10" />
+          <div className="space-y-2 flex-1">
+            <div className="skeleton-text w-full" />
+            <div className="skeleton-text w-5/6" />
+            <div className="skeleton-text w-2/3" />
+            <div className="skeleton-text w-4/5" />
           </div>
         ) : (
           <textarea
@@ -127,18 +131,18 @@ export default function MemoryPanel({ open, characterId, characterName, onClose 
           <button
             onClick={() => setConfirmForgetOpen(true)}
             disabled={loading || saving || (!summary && summarizedThrough === 0)}
-            className="text-sm text-rose/80 hover:text-rose focus-ring rounded px-2 py-1 disabled:opacity-30"
+            className="text-sm text-rose/80 hover:text-rose focus-ring rounded px-2 py-1 disabled:opacity-30 transition-colors"
           >
-            Forget everything
+            🗑 Forget everything
           </button>
           <div className="flex gap-3">
-            <button onClick={onClose} className="text-sm px-4 py-2 rounded-full border border-parchment/20 hover:border-gold/50 focus-ring">
+            <button onClick={onClose} className="text-sm px-4 py-2 rounded-full border border-parchment/20 hover:border-gold/50 focus-ring transition-all hover:bg-white/5">
               Cancel
             </button>
             <button
               onClick={onSave}
               disabled={loading || saving}
-              className="text-sm bg-gold text-ink px-4 py-2 rounded-full font-medium hover:brightness-110 focus-ring disabled:opacity-50"
+              className="text-sm bg-gold text-ink px-4 py-2 rounded-full font-medium hover:brightness-110 focus-ring disabled:opacity-50 btn-shine shadow-lg shadow-gold/15"
             >
               {saving ? "Saving…" : "Save"}
             </button>
