@@ -360,6 +360,17 @@ export default function ChatPage() {
     }
   }
 
+  async function refreshMessages() {
+    try {
+      const r = await apiFetch(`/api/chat/${characterId}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      setMessages(data.messages);
+    } catch {
+      // best-effort sync; ignore transient failures
+    }
+  }
+
   async function sendMessage(userText: string, sceneDirective?: string) {
     setError("");
     setSending(true);
@@ -396,6 +407,7 @@ export default function ChatPage() {
     } finally {
       setSending(false);
       abortControllerRef.current = null;
+      await refreshMessages();
     }
   }
 
@@ -476,6 +488,7 @@ export default function ChatPage() {
     } finally {
       setSending(false);
       abortControllerRef.current = null;
+      await refreshMessages();
     }
   }
 
@@ -555,6 +568,7 @@ export default function ChatPage() {
       setSavingEdit(false);
       setSending(false);
       abortControllerRef.current = null;
+      await refreshMessages();
     }
   }
 
@@ -868,27 +882,27 @@ export default function ChatPage() {
 
               return (
                 <div key={m.id} className="group message-slide-in">
-                  {isEditing ? (
-                    <div className="max-w-lg ml-auto rounded-2xl rounded-tr-sm bg-gold/10 border border-gold/40 p-3">
-                      <textarea
-                        ref={editTextareaRef}
-                        autoFocus
-                        value={editDraft}
-                        onChange={(e) => {
-                          setEditDraft(e.target.value);
-                          autoResizeEdit();
-                        }}
-                        onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            submitEdit(m.id);
-                          } else if (e.key === "Escape") {
-                            cancelEdit();
-                          }
-                        }}
-                        rows={2}
-                        className="w-full bg-transparent resize-none focus:outline-none text-ink placeholder:text-ink/40"
-                      />
+                   {isEditing ? (
+                     <div className="max-w-lg ml-auto rounded-2xl rounded-tr-sm bg-plum-deep/90 border border-gold/30 p-3 shadow-lg">
+                       <textarea
+                         ref={editTextareaRef}
+                         autoFocus
+                         value={editDraft}
+                         onChange={(e) => {
+                           setEditDraft(e.target.value);
+                           autoResizeEdit();
+                         }}
+                         onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => {
+                           if (e.key === "Enter" && !e.shiftKey) {
+                             e.preventDefault();
+                             submitEdit(m.id);
+                           } else if (e.key === "Escape") {
+                             cancelEdit();
+                           }
+                         }}
+                         rows={2}
+                         className="w-full bg-transparent resize-none focus:outline-none text-parchment placeholder:text-parchment/40"
+                       />
                       <div className="flex justify-end gap-2 mt-2">
                         <button
                           onClick={cancelEdit}
