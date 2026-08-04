@@ -23,6 +23,8 @@ type Character = {
   roleplayNotes?: string;
   avatarPrompt?: string;
   scenePromptTemplate?: string;
+  examples?: string;
+  tags?: string;
 };
 
 const EMOJI_CHOICES = ["🌸", "🦊", "🌙", "⚔️", "🕯️", "🐉", "☕", "🌊"];
@@ -47,6 +49,8 @@ export default function EditCharacterPage() {
   const [roleplayNotes, setRoleplayNotes] = useState("");
   const [avatarPrompt, setAvatarPrompt] = useState("");
   const [scenePromptTemplate, setScenePromptTemplate] = useState("");
+  const [examples, setExamples] = useState("[]");
+  const [tags, setTags] = useState("[]");
 
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -78,6 +82,8 @@ export default function EditCharacterPage() {
         setRoleplayNotes(c.roleplayNotes ?? "");
         setAvatarPrompt(c.avatarPrompt ?? "");
         setScenePromptTemplate(c.scenePromptTemplate ?? "");
+        setExamples(c.examples ?? "[]");
+        setTags(c.tags ?? "[]");
       })
       .catch(() => setNotFound(true));
   }, [id]);
@@ -101,6 +107,8 @@ export default function EditCharacterPage() {
         roleplayNotes: isExplicit ? roleplayNotes : "",
         avatarPrompt,
         scenePromptTemplate,
+        examples,
+        tags,
       }),
     });
     setSaving(false);
@@ -511,8 +519,32 @@ export default function EditCharacterPage() {
             value={scenePromptTemplate}
             onChange={(e) => setScenePromptTemplate(e.target.value.slice(0, 2000))}
             rows={2}
-            className="w-full mb-6 rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring text-sm"
+            className="w-full mb-4 rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring text-sm"
             placeholder="e.g. moody film noir lighting, rain-slicked city streets, muted color palette..."
+          />
+
+          <label className="block text-sm mb-1 text-parchment/70">Example dialogues (optional)</label>
+          <p className="text-xs text-parchment/40 mb-2">
+            Teach the character how they speak — up to 10 example conversation turns as JSON.
+          </p>
+          <textarea
+            value={examples}
+            onChange={(e) => setExamples(e.target.value)}
+            rows={8}
+            className="w-full mb-4 rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring text-sm font-mono"
+            placeholder={`[` +
+              `\n  { "user": "Hi there!", "character": "Hey! *waves energetically*" },` +
+              `\n  { "user": "How are you?", "character": "Living the dream, one coffee at a time." }` +
+              `\n]`
+            }
+          />
+
+          <label className="block text-sm mb-1 text-parchment/70">Tags (optional, comma-separated)</label>
+          <input
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+            className="w-full mb-6 rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring text-sm"
+            placeholder="e.g. fantasy, romance, adventure, comedy"
           />
 
           <div className="flex gap-3">

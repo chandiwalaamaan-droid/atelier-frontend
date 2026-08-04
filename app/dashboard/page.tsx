@@ -100,6 +100,8 @@ export default function DashboardPage() {
   const [roleplayNotes, setRoleplayNotes] = useState("");
   const [avatarPrompt, setAvatarPrompt] = useState("");
   const [scenePromptTemplate, setScenePromptTemplate] = useState("");
+  const [examples, setExamples] = useState("[]");
+  const [tags, setTags] = useState("[]");
   const [draftExplicit, setDraftExplicit] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -202,6 +204,8 @@ export default function DashboardPage() {
         roleplayNotes: isExplicit ? roleplayNotes : "",
         avatarPrompt,
         scenePromptTemplate,
+        examples,
+        tags,
       }),
     });
     setSaving(false);
@@ -217,6 +221,11 @@ export default function DashboardPage() {
     setGreeting("");
     setAvatarEmoji("🌸");
     setIsExplicit(false);
+    setRoleplayNotes("");
+    setAvatarPrompt("");
+    setScenePromptTemplate("");
+    setExamples("[]");
+    setTags("[]");
     setShowForm(false);
     if (data.character?.id) {
       router.push(`/characters/${data.character.id}/edit`);
@@ -431,8 +440,32 @@ export default function DashboardPage() {
             value={scenePromptTemplate}
             onChange={(e) => setScenePromptTemplate(e.target.value.slice(0, MAX_FIELD_LENGTH))}
             rows={2}
-            className="w-full mb-6 rounded-xl bg-plum-deep/80 border border-white/10 px-4 py-2.5 focus-ring text-sm placeholder:text-parchment/25"
+            className="w-full mb-2 rounded-xl bg-plum-deep/80 border border-white/10 px-4 py-2.5 focus-ring text-sm placeholder:text-parchment/25"
             placeholder="e.g. moody film noir lighting, rain-slicked city streets, muted color palette..."
+          />
+
+          <label className="block text-sm mb-1.5 text-parchment/60">Example dialogues (optional)</label>
+          <p className="text-xs text-parchment/40 mb-2">
+            Teach the character how they speak — up to 10 example conversation turns.
+          </p>
+          <textarea
+            value={examples}
+            onChange={(e) => setExamples(e.target.value)}
+            rows={6}
+            className="w-full mb-2 rounded-xl bg-plum-deep/80 border border-white/10 px-4 py-2.5 focus-ring text-sm font-mono placeholder:text-parchment/25"
+            placeholder={`[` +
+              `\n  { "user": "Hi there!", "character": "Hey! *waves energetically*" },` +
+              `\n  { "user": "How are you?", "character": "Living the dream, one coffee at a time." }` +
+              `\n]`
+            }
+          />
+
+          <label className="block text-sm mb-1.5 text-parchment/60">Tags (optional, comma-separated)</label>
+          <input
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+            className="w-full mb-6 rounded-xl bg-plum-deep/80 border border-white/10 px-4 py-2.5 focus-ring text-sm placeholder:text-parchment/25"
+            placeholder="e.g. fantasy, romance, adventure, comedy"
           />
 
           <button

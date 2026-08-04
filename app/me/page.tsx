@@ -17,6 +17,8 @@ type Character = {
   avatarUrl: string | null;
   accentColor: string;
   isPublic?: boolean;
+  examples?: string;
+  tags?: string;
 };
 
 function slugifyAvatar(name: string): string {

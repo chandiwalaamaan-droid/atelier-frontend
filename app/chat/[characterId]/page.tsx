@@ -36,6 +36,8 @@ type Character = {
   greeting: string;
   isExplicit: boolean;
   roleplayNotes?: string;
+  examples?: string;
+  tags?: string;
 };
 
 type Message = {
@@ -214,6 +216,9 @@ export default function ChatPage() {
   const [reactions, setReactions] = useState<Map<string, Reaction[]>>(new Map());
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [relationshipLevel, setRelationshipLevel] = useState(0);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -226,6 +231,16 @@ export default function ChatPage() {
     document.documentElement.setAttribute("data-chat-theme", theme);
     saveChatTheme(theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (!openMenuId) return;
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".message-menu")) setOpenMenuId(null);
+    }
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, [openMenuId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -374,7 +389,7 @@ export default function ChatPage() {
   async function sendMessage(userText: string, sceneDirective?: string) {
     setError("");
     setSending(true);
-    lastActionRef.current = { type: "send", text: userText || "[scene steer]" };
+    lastActionRef.current = { type: "send", text: userText, sceneDirective };
 
     const showUserBubble = Boolean(userText.trim());
     const userMsg: Message | null = showUserBubble
@@ -417,7 +432,8 @@ export default function ChatPage() {
   }
 
   async function retryFailedSend() {
-    if (sending) return;
+    const action = lastActionRef.current;
+    if (!action || action.type !== "send" || sending) return;
     setError("");
     setSending(true);
     const assistantId = `local-${Date.now()}-a`;
@@ -430,7 +446,10 @@ export default function ChatPage() {
     try {
       const res = await apiFetch(`/api/chat/${characterId}`, {
         method: "POST",
-        body: buildChatBody(roleplayPrefs, { regenerate: true }),
+        body: buildChatBody(roleplayPrefs, {
+          message: action.text,
+          ...(action.sceneDirective ? { sceneDirective: action.sceneDirective } : {}),
+        }),
         signal: controller.signal,
       });
       await runStream(res, assistantId, () =>
@@ -512,6 +531,28 @@ export default function ChatPage() {
       setError("");
     } finally {
       setResetting(false);
+    }
+  }
+
+  function toggleMenu(id: string) {
+    setOpenMenuId((prev) => (prev === id ? null : id));
+  }
+
+  function confirmDelete(id: string) {
+    setDeleteTargetId(id);
+    setDeleteConfirmOpen(true);
+  }
+
+  async function onDeleteMessage() {
+    if (!deleteTargetId) return;
+    setDeleteConfirmOpen(false);
+    try {
+      await apiFetch(`/api/chat/${characterId}/messages/${deleteTargetId}`, { method: "DELETE" });
+      setMessages((prev) => prev.filter((m) => m.id !== deleteTargetId));
+    } catch {
+      setError("Couldn't delete that message.");
+    } finally {
+      setDeleteTargetId(null);
     }
   }
 
@@ -825,6 +866,27 @@ export default function ChatPage() {
                 >
                   Clear
                 </button>
+                <button
+                  onClick={() => {
+                    const lines = messages.map((m) => {
+                      const time = m.createdAt ? `[${formatTime(m.createdAt)}] ` : "";
+                      const role = m.role === "user" ? "You" : character.name;
+                      return `${time}${role}: ${m.content}`;
+                    });
+                    const blob = new Blob([lines.join("\n\n")], { type: "text/plain" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${character.name} - Chat Export.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  disabled={messages.length === 0}
+                  className="text-sm text-parchment/50 hover:text-gold focus-ring rounded px-2 py-1 disabled:opacity-40 transition-colors"
+                  title="Export conversation as text"
+                >
+                  Export
+                </button>
                 <Link
                   href={`/characters/${character.id}/edit`}
                   className="text-sm text-parchment/50 hover:text-gold focus-ring rounded px-2 py-1 transition-colors"
@@ -969,29 +1031,61 @@ export default function ChatPage() {
                       }`}
                     >
                       {m.createdAt && <span className="select-none">{formatTime(m.createdAt)}</span>}
-                      <button onClick={() => onCopy(m.id, m.content)} className="hover:text-gold focus-ring rounded">
-                        {copiedId === m.id ? "Copied" : "Copy"}
-                      </button>
-                      {m.role === "assistant" && (
+                      <div className="relative message-menu">
                         <button
-                          onClick={() => onSpeak(m.id, m.content)}
-                          disabled={loadingAudioId === m.id}
-                          className="hover:text-gold focus-ring rounded disabled:opacity-50"
-                          title="Play this message aloud"
+                          onClick={() => toggleMenu(m.id)}
+                          className="hover:text-gold focus-ring rounded px-1"
+                          aria-label="Message options"
                         >
-                          {loadingAudioId === m.id ? "Loading…" : playingId === m.id ? "⏸ Pause" : "🔊 Play"}
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                            <circle cx="8" cy="3" r="1.5" />
+                            <circle cx="8" cy="8" r="1.5" />
+                            <circle cx="8" cy="13" r="1.5" />
+                          </svg>
                         </button>
-                      )}
-                      {m.role === "user" && !sending && (
-                        <button onClick={() => startEdit(m.id, m.content)} className="hover:text-gold focus-ring rounded">
-                          Edit
-                        </button>
-                      )}
-                      {isLastAssistant && !sending && (
-                        <button onClick={onRegenerate} className="hover:text-gold focus-ring rounded">
-                          Regenerate
-                        </button>
-                      )}
+                        {openMenuId === m.id && (
+                          <div className="absolute right-0 bottom-full mb-1 min-w-[140px] rounded-xl bg-plum-deep border border-parchment/15 shadow-xl py-1 z-50 overflow-hidden">
+                            <button
+                              onClick={() => { onCopy(m.id, m.content); setOpenMenuId(null); }}
+                              className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-parchment/80 hover:text-gold transition-colors text-xs"
+                            >
+                              {copiedId === m.id ? "Copied" : "Copy"}
+                            </button>
+                            {m.role === "assistant" && (
+                              <button
+                                onClick={() => { onSpeak(m.id, m.content); setOpenMenuId(null); }}
+                                disabled={loadingAudioId === m.id}
+                                className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-parchment/80 hover:text-gold transition-colors disabled:opacity-50 text-xs"
+                              >
+                                {loadingAudioId === m.id ? "Loading…" : playingId === m.id ? "⏸ Pause" : "🔊 Play"}
+                              </button>
+                            )}
+                            {m.role === "user" && !sending && (
+                              <button
+                                onClick={() => { startEdit(m.id, m.content); setOpenMenuId(null); }}
+                                className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-parchment/80 hover:text-gold transition-colors text-xs"
+                              >
+                                Edit
+                              </button>
+                            )}
+                            {isLastAssistant && !sending && (
+                              <button
+                                onClick={() => { onRegenerate(); setOpenMenuId(null); }}
+                                className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-parchment/80 hover:text-gold transition-colors text-xs"
+                              >
+                                Regenerate
+                              </button>
+                            )}
+                            <div className="border-t border-parchment/10 my-0.5" />
+                            <button
+                              onClick={() => { confirmDelete(m.id); setOpenMenuId(null); }}
+                              className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-rose hover:text-rose transition-colors text-xs"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1084,6 +1178,16 @@ export default function ChatPage() {
             destructive
             onConfirm={confirmResetConversation}
             onCancel={() => setResetConfirmOpen(false)}
+          />
+
+          <ConfirmDialog
+            open={deleteConfirmOpen}
+            title="Delete this message?"
+            description="This can't be undone."
+            confirmLabel="Delete"
+            destructive
+            onConfirm={onDeleteMessage}
+            onCancel={() => { setDeleteConfirmOpen(false); setDeleteTargetId(null); }}
           />
 
           {character && (

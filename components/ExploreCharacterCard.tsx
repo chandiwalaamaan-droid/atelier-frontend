@@ -11,6 +11,7 @@ export type ExploreCardCharacter = {
   avatarUrl: string | null;
   accentColor: string;
   owner?: { displayName: string } | null;
+  tags?: string;
 };
 
 function slugifyAvatar(name: string): string {
@@ -53,7 +54,14 @@ type Props = {
 };
 
 export default function ExploreCharacterCard({ character: c, onRemix, remixing, onReport }: Props) {
-  const tags = inferTags(c);
+  let tags: string[];
+  try {
+    const parsed = c.tags ? JSON.parse(c.tags) : [];
+    tags = Array.isArray(parsed) ? parsed.slice(0, 5) : inferTags(c);
+  } catch {
+    tags = inferTags(c);
+  }
+  if (!tags.length) tags = inferTags(c);
   const blurb = c.tagline || c.personality;
 
   return (

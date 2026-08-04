@@ -9,6 +9,8 @@ export type CharacterImportEntry = {
   isExplicit: boolean;
   isPublic: boolean;
   roleplayNotes?: string;
+  examples?: string;
+  tags?: string;
 };
 
 export type CharacterImportPreview = {
@@ -104,6 +106,8 @@ export function parseCharacterEntry(body: unknown, index: number): { entry?: Cha
   const isExplicit = raw.isExplicit === true;
   const isPublic = raw.isPublic === true;
   const roleplayNotes = isExplicit ? clean(raw.roleplayNotes) : "";
+  const examples = typeof raw.examples === "string" ? raw.examples : undefined;
+  const tags = typeof raw.tags === "string" ? raw.tags : undefined;
 
   if (!name) return { error: `Row ${index + 1}: name is required.` };
   if (!personality) return { error: `Row ${index + 1} (${name}): personality is required.` };
@@ -122,6 +126,8 @@ export function parseCharacterEntry(body: unknown, index: number): { entry?: Cha
       isExplicit,
       isPublic,
       roleplayNotes,
+      ...(examples ? { examples } : {}),
+      ...(tags ? { tags } : {}),
     },
   };
 }
@@ -155,6 +161,8 @@ export const IMPORT_FORMAT_EXAMPLE = `[
     "greeting": "First line they say in chat.",
     "avatarEmoji": "🌸",
     "accentColor": "#c9a227",
-    "isExplicit": false
+    "isExplicit": false,
+    "examples": "[{\\"user\\": \\"Hi\\", \\"character\\": \\"Hey there!\\"}]",
+    "tags": "[\"fantasy\", \"romance\"]"
   }
 ]`;

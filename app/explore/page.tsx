@@ -105,7 +105,15 @@ export default function ExplorePage() {
         (c) =>
           c.name.toLowerCase().includes(q) ||
           c.tagline.toLowerCase().includes(q) ||
-          c.personality.toLowerCase().includes(q)
+          c.personality.toLowerCase().includes(q) ||
+          (() => {
+            try {
+              const tags = JSON.parse(c.tags || "[]");
+              return Array.isArray(tags) && tags.some((t: string) => t.toLowerCase().includes(q));
+            } catch {
+              return false;
+            }
+          })()
       );
     }
     return list;

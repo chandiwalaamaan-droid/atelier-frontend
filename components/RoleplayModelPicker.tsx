@@ -379,7 +379,7 @@ export default function RoleplayModelPicker({
                       {flagshipPremium.map((engine) => (
                         <EngineCard
                           key={engine.id}
-                          engine={{ ...engine, badge: (engine.badge || 0) + 1 }}
+                          engine={engine}
                           selected={engineId === engine.id}
                           fineTuneOpen={fineTuneEngineId === engine.id}
                           onSelect={() => selectEngine(engine)}
