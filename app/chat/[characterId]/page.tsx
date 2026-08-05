@@ -219,6 +219,9 @@ export default function ChatPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ displayName: string; email: string } | null>(null);
+  const [chatMenuOpen, setChatMenuOpen] = useState(false);
+  const [expandedAvatar, setExpandedAvatar] = useState<string | null>(null);
 
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -283,6 +286,34 @@ export default function ChatPage() {
     if (explicit) level = Math.min(100, level + 15);
     setRelationshipLevel(level);
   }, [messages.length, roleplayPrefs.explicitMode]);
+
+  useEffect(() => {
+    apiFetch("/api/auth/me")
+      .then(async (r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data) => setCurrentUser(data.user ?? null))
+      .catch(() => setCurrentUser(null));
+  }, [characterId]);
+
+  useEffect(() => {
+    if (!chatMenuOpen) return;
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".message-menu") && !target.closest("[aria-label=\"Chat menu\"]")) {
+        setChatMenuOpen(false);
+      }
+    }
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, [chatMenuOpen]);
+
+  useEffect(() => {
+    if (!expandedAvatar) return;
+    function onKeyDown(e: globalThis.KeyboardEvent) {
+      if (e.key === "Escape") setExpandedAvatar(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [expandedAvatar]);
 
   function applyEnginePrefs(prefs: RoleplayPreferences, engineId: RoleplayEngineId) {
     setRoleplayPrefs({ ...prefs, engineId });
@@ -469,6 +500,7 @@ export default function ChatPage() {
       setSending(false);
       sendingRef.current = false;
       abortControllerRef.current = null;
+      await refreshMessages();
     }
   }
 
@@ -528,6 +560,22 @@ export default function ChatPage() {
 
   function onResetConversation() {
     setResetConfirmOpen(true);
+  }
+
+  function exportChat() {
+    if (!character || messages.length === 0) return;
+    const lines = messages.map((m) => {
+      const time = m.createdAt ? `[${formatTime(m.createdAt)}] ` : "";
+      const role = m.role === "user" ? currentUser?.displayName || "You" : character.name;
+      return `${time}${role}: ${m.content}`;
+    });
+    const blob = new Blob([lines.join("\n\n")], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${character.name} - Chat Export.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   async function confirmResetConversation() {
@@ -788,120 +836,76 @@ export default function ChatPage() {
       <AppShell variant="chat">
         <main className="flex-1 flex flex-col min-h-0 relative">
           {/* Header */}
-          <header className="px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 border-b border-white/10 shrink-0 bg-gradient-to-r from-surface-raised to-plum-deep/30">
+          <header className="px-3 sm:px-4 md:px-6 py-2 border-b border-white/10 shrink-0 bg-gradient-to-r from-surface-raised to-plum-deep/30">
             {character && (
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <button onClick={() => router.push("/explore")} className="text-parchment/60 hover:text-gold focus-ring rounded px-2 transition-colors shrink-0">
+              <div className="flex items-center justify-between gap-2">
+                <button onClick={() => router.push("/explore")} className="text-parchment/60 hover:text-gold focus-ring rounded px-2 py-1 transition-colors shrink-0">
                   ←
                 </button>
-                <div className="avatar-ring-animated relative text-xl w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full overflow-hidden focus-ring shrink-0" style={{ "--ring-color": `${character.accentColor}80` } as React.CSSProperties}>
-                  <button
-                    type="button"
-                    onClick={() => setAvatarModalOpen(true)}
-                    className="relative text-xl w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full overflow-hidden focus-ring shrink-0 shadow-lg"
-                    style={{ backgroundColor: `${character.accentColor}30` }}
-                    title="Change portrait"
-                  >
-                    <span className="text-xl">{character.avatarEmoji}</span>
-                    <img
-                      src={character.avatarUrl ? resolveMediaUrl(character.avatarUrl) : slugifyAvatar(character.name)}
-                      alt={character.name}
-                      className="absolute inset-0 w-full h-full object-cover"
-                      onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = "none";
-                      }}
-                    />
-                  </button>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-display text-base sm:text-lg truncate">{character.name}</p>
-                  {character.tagline && <p className="text-[11px] sm:text-xs text-parchment/50 truncate">{character.tagline}</p>}
-                </div>
 
-                {/* Relationship Meter */}
-                <div className="relationship-meter hidden sm:flex" title={`Relationship level: ${relationshipLevel}%`}>
-                  <span>💖</span>
-                  <div className="w-12 sm:w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <div className="relationship-meter-fill h-full rounded-full" style={{ width: `${relationshipLevel}%` }} />
+                <div className="flex items-center gap-2 min-w-0">
+                  <div
+                    className="relative w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-full overflow-hidden cursor-pointer ring-1 ring-white/10"
+                    style={{ backgroundColor: `${character.accentColor}30` }}
+                    onClick={() => setExpandedAvatar(character.avatarUrl ?? null)}
+                  >
+                    {character.avatarUrl ? (
+                      <img src={resolveMediaUrl(character.avatarUrl)} alt={character.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="absolute inset-0 flex items-center justify-center text-lg">{character.avatarEmoji}</span>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-display text-base sm:text-lg truncate leading-tight">{character.name}</p>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] text-blue-400">✓</span>
+                      <span className="text-[10px] text-parchment/40">Verified character</span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Theme Toggle */}
-                <div className="flex items-center gap-0.5 sm:gap-1">
-                  {CHAT_THEMES.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => setTheme(t.id)}
-                      className={`theme-toggle-btn w-7 h-7 text-xs sm:w-8 sm:h-8 sm:text-sm ${theme === t.id ? "border-gold/40 text-gold" : ""}`}
-                      title={`${t.label} theme`}
-                      aria-label={`Switch to ${t.label} theme`}
-                    >
-                      {t.emoji}
-                    </button>
-                  ))}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setChatMenuOpen((s) => !s)}
+                    className="text-parchment/60 hover:text-parchment focus-ring rounded-lg px-2 py-1 transition-colors"
+                    aria-label="Chat menu"
+                    aria-expanded={chatMenuOpen}
+                  >
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      {chatMenuOpen ? (
+                        <>
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </>
+                      ) : (
+                        <>
+                          <line x1="4" y1="6" x2="20" y2="6" />
+                          <line x1="4" y1="12" x2="20" y2="12" />
+                          <line x1="4" y1="18" x2="20" y2="18" />
+                        </>
+                      )}
+                    </svg>
+                  </button>
+                  {chatMenuOpen && (
+                    <div className="absolute right-0 top-full mt-1 w-44 bg-plum-deep border border-parchment/15 rounded-xl shadow-xl py-1 z-50 animate-fade-in">
+                      <button onClick={() => { setEnginePickerOpen(true); setChatMenuOpen(false); }} className="w-full text-left px-3 py-2 text-xs text-parchment/80 hover:bg-white/5 transition-colors">🎛 Roleplay engine</button>
+                      <button onClick={() => { setMemoryOpen(true); setChatMenuOpen(false); }} className="w-full text-left px-3 py-2 text-xs text-parchment/80 hover:bg-white/5 transition-colors">🧠 Memory</button>
+                      <button onClick={() => { onResetConversation(); setChatMenuOpen(false); }} className="w-full text-left px-3 py-2 text-xs text-parchment/80 hover:bg-white/5 transition-colors">🗑 Clear conversation</button>
+                      <button onClick={() => { exportChat(); setChatMenuOpen(false); }} className="w-full text-left px-3 py-2 text-xs text-parchment/80 hover:bg-white/5 transition-colors">📤 Export chat</button>
+                      <Link href={`/characters/${character.id}/edit`} onClick={() => setChatMenuOpen(false)} className="block w-full text-left px-3 py-2 text-xs text-parchment/80 hover:bg-white/5 transition-colors">✏️ Edit character</Link>
+                      <div className="border-t border-parchment/10 my-0.5" />
+                      <div className="px-3 py-2">
+                        <p className="text-[10px] text-parchment/40 mb-1">Theme</p>
+                        <div className="flex gap-1">
+                          {CHAT_THEMES.map((t) => (
+                            <button key={t.id} onClick={() => setTheme(t.id)} className={`theme-toggle-btn w-7 h-7 text-xs ${theme === t.id ? "border-gold/40 text-gold" : ""}`} title={`${t.label} theme`}>{t.emoji}</button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => setEnginePickerOpen(true)}
-                  className="flex items-center justify-center gap-0 sm:gap-2 max-w-[2.25rem] sm:max-w-[11rem] md:max-w-xs rounded-full border border-parchment/15 bg-plum/60 hover:border-gold/40 hover:bg-plum/80 p-1 sm:pl-1.5 sm:pr-3 py-1 focus-ring shrink-0 transition-all"
-                  title="Choose roleplay engine"
-                >
-                  <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-sm sm:text-lg bg-plum-deep/80 shrink-0 shadow-inner">
-                    {activeEngineEmoji(displayEngineId)}
-                  </span>
-                  <span className="hidden sm:inline min-w-0 text-left">
-                    <span className="block text-xs font-medium text-parchment truncate leading-tight">
-                      {activeEngineLabel(roleplayPrefs, displayEngineId)}
-                    </span>
-                    <span className="block text-[10px] text-parchment/45 truncate">
-                      {roleplayPrefs.explicitMode ? "Premium · 18+" : "Free"}
-                    </span>
-                  </span>
-                </button>
-                <button
-                  onClick={() => setMemoryOpen(true)}
-                  className="text-[11px] sm:text-xs md:text-sm text-parchment/50 hover:text-gold focus-ring rounded px-1.5 sm:px-2 py-1 transition-colors shrink-0"
-                  title="What this character remembers about your conversation"
-                >
-                  Memory
-                </button>
-                <button
-                  onClick={onResetConversation}
-                  disabled={resetting || messages.length === 0}
-                  className="text-[11px] sm:text-xs md:text-sm text-parchment/50 hover:text-rose focus-ring rounded px-1.5 sm:px-2 py-1 disabled:opacity-40 transition-colors shrink-0"
-                  title="Clear this conversation"
-                >
-                  Clear
-                </button>
-                <button
-                  onClick={() => {
-                    const lines = messages.map((m) => {
-                      const time = m.createdAt ? `[${formatTime(m.createdAt)}] ` : "";
-                      const role = m.role === "user" ? "You" : character.name;
-                      return `${time}${role}: ${m.content}`;
-                    });
-                    const blob = new Blob([lines.join("\n\n")], { type: "text/plain" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `${character.name} - Chat Export.txt`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                  disabled={messages.length === 0}
-                  className="text-[11px] sm:text-xs md:text-sm text-parchment/50 hover:text-gold focus-ring rounded px-1.5 sm:px-2 py-1 disabled:opacity-40 transition-colors shrink-0"
-                  title="Export conversation as text"
-                >
-                  Export
-                </button>
-                <Link
-                  href={`/characters/${character.id}/edit`}
-                  className="text-[11px] sm:text-xs md:text-sm text-parchment/50 hover:text-gold focus-ring rounded px-1.5 sm:px-2 py-1 transition-colors shrink-0"
-                >
-                  Edit
-                </Link>
               </div>
             )}
           </header>
@@ -949,154 +953,184 @@ export default function ChatPage() {
               const isStreamingEmpty = isLastAssistant && sending && !m.content;
               const isEditing = editingId === m.id;
               const msgReactions = reactions.get(m.id) || [];
-              const lastMsgReactions = isLastAssistant ? msgReactions : [];
+
+              const userInitial = (currentUser?.displayName || "You").charAt(0).toUpperCase();
 
               return (
-                <div key={m.id} className="group message-slide-in">
-                   {isEditing ? (
-                     <div className="max-w-[85%] sm:max-w-lg ml-auto rounded-2xl rounded-tr-sm bg-plum-deep/90 border border-gold/30 p-3 shadow-lg">
-                       <textarea
-                         ref={editTextareaRef}
-                         autoFocus
-                         value={editDraft}
-                         onChange={(e) => {
-                           setEditDraft(e.target.value);
-                           autoResizeEdit();
-                         }}
-                         onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => {
-                           if (e.key === "Enter" && !e.shiftKey) {
-                             e.preventDefault();
-                             submitEdit(m.id);
-                           } else if (e.key === "Escape") {
-                             cancelEdit();
-                           }
-                         }}
-                         rows={2}
-                         className="w-full bg-transparent resize-none focus:outline-none text-parchment placeholder:text-parchment/40"
-                       />
-                      <div className="flex justify-end gap-2 mt-2">
-                        <button
-                          onClick={cancelEdit}
-                          className="text-xs text-ink/60 hover:text-ink px-3 py-1 rounded-full focus-ring"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => submitEdit(m.id)}
-                          disabled={!editDraft.trim() || savingEdit}
-                          className="text-xs bg-ink text-parchment px-3 py-1 rounded-full font-medium hover:brightness-125 focus-ring disabled:opacity-40"
-                        >
-                          {savingEdit ? "Saving…" : "Save & regenerate"}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      aria-live={isLastAssistant ? "polite" : undefined}
-                      className={`max-w-[85%] sm:max-w-lg px-4 py-3 rounded-2xl whitespace-pre-wrap ${
-                        m.role === "user"
-                          ? "chat-bubble-user ml-auto rounded-tr-sm"
-                          : "chat-bubble-assistant rounded-tl-sm"
-                      }`}
-                    >
-                      {isStreamingEmpty ? (
-                        <div className="typing-indicator-enhanced">
-                          <span className="text-xs text-parchment/60 mr-1">{character.name} is typing</span>
-                          <span className="typing-indicator-dot" />
-                          <span className="typing-indicator-dot" />
-                          <span className="typing-indicator-dot" />
-                        </div>
+                <div key={m.id} className="group message-slide-in flex gap-2 sm:gap-3">
+                  {/* Avatar */}
+                  <div
+                    className={`w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-full overflow-hidden ring-1 ring-white/10 ${m.role === "assistant" ? "cursor-pointer" : "bg-plum-deep/80"}`}
+                    style={m.role === "assistant" ? { backgroundColor: `${character.accentColor}30` } : undefined}
+                    onClick={() => m.role === "assistant" && setExpandedAvatar(character.avatarUrl ?? null)}
+                  >
+                    {m.role === "assistant" ? (
+                      character.avatarUrl ? (
+                        <img src={resolveMediaUrl(character.avatarUrl)} alt={character.name} className="w-full h-full object-cover" />
                       ) : (
-                        renderMessageContent(m.content)
+                        <span className="absolute inset-0 flex items-center justify-center text-lg">{character.avatarEmoji}</span>
+                      )
+                    ) : (
+                      <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-parchment/80">{userInitial}</span>
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    {/* Name + badge + time */}
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-sm text-parchment/90 truncate">
+                        {m.role === "assistant" ? character.name : (currentUser?.displayName || "You")}
+                      </span>
+                      {m.role === "assistant" && (
+                        <span className="text-[10px] text-blue-400 shrink-0">✓</span>
+                      )}
+                      {m.createdAt && (
+                        <span className="text-[10px] text-parchment/30">{formatTime(m.createdAt)}</span>
                       )}
                     </div>
-                  )}
 
-                  {/* Reactions */}
-                  {m.content && !isEditing && (
-                    <div className={`flex flex-wrap items-center gap-1.5 mt-1.5 ${m.role === "user" ? "justify-end pr-1" : "justify-start pl-1"}`}>
-                      {REACTION_EMOJIS.map((emoji) => {
-                        const existing = msgReactions.find((r) => r.emoji === emoji);
-                        return (
+                    {/* Bubble */}
+                    {isEditing ? (
+                      <div className="max-w-[85%] sm:max-w-lg rounded-2xl bg-plum-deep/90 border border-gold/30 p-3 shadow-lg">
+                        <textarea
+                          ref={editTextareaRef}
+                          autoFocus
+                          value={editDraft}
+                          onChange={(e) => {
+                            setEditDraft(e.target.value);
+                            autoResizeEdit();
+                          }}
+                          onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              submitEdit(m.id);
+                            } else if (e.key === "Escape") {
+                              cancelEdit();
+                            }
+                          }}
+                          rows={2}
+                          className="w-full bg-transparent resize-none focus:outline-none text-parchment placeholder:text-parchment/40"
+                        />
+                        <div className="flex justify-end gap-2 mt-2">
                           <button
-                            key={emoji}
-                            onClick={() => toggleReaction(m.id, emoji)}
-                            className={`reaction-btn ${existing?.reacted ? "reacted" : ""}`}
-                            aria-label={`React with ${emoji}${existing ? ` (${existing.count})` : ""}`}
+                            onClick={cancelEdit}
+                            className="text-xs text-ink/60 hover:text-ink px-3 py-1 rounded-full focus-ring"
                           >
-                            {emoji}
-                            {existing && existing.count > 0 && <span className="text-[10px] font-medium">{existing.count}</span>}
+                            Cancel
                           </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Actions */}
-                  {m.content && !isEditing && (
-                    <div
-                      className={`flex items-center gap-3 mt-1.5 text-xs text-parchment/40 opacity-0 group-hover:opacity-100 transition-opacity ${
-                        m.role === "user" ? "justify-end pr-1" : "justify-start pl-1"
-                      }`}
-                    >
-                      {m.createdAt && <span className="select-none">{formatTime(m.createdAt)}</span>}
-                      <div className="relative message-menu">
-                        <button
-                          onClick={() => toggleMenu(m.id)}
-                          className="hover:text-gold focus-ring rounded px-1"
-                          aria-label="Message options"
-                        >
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                            <circle cx="8" cy="3" r="1.5" />
-                            <circle cx="8" cy="8" r="1.5" />
-                            <circle cx="8" cy="13" r="1.5" />
-                          </svg>
-                        </button>
-                        {openMenuId === m.id && (
-                          <div className="absolute right-0 bottom-full mb-1 min-w-[140px] rounded-xl bg-plum-deep border border-parchment/15 shadow-xl py-1 z-50 overflow-hidden">
-                            <button
-                              onClick={() => { onCopy(m.id, m.content); setOpenMenuId(null); }}
-                              className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-parchment/80 hover:text-gold transition-colors text-xs"
-                            >
-                              {copiedId === m.id ? "Copied" : "Copy"}
-                            </button>
-                            {m.role === "assistant" && (
-                              <button
-                                onClick={() => { onSpeak(m.id, m.content); setOpenMenuId(null); }}
-                                disabled={loadingAudioId === m.id}
-                                className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-parchment/80 hover:text-gold transition-colors disabled:opacity-50 text-xs"
-                              >
-                                {loadingAudioId === m.id ? "Loading…" : playingId === m.id ? "⏸ Pause" : "🔊 Play"}
-                              </button>
-                            )}
-                            {m.role === "user" && !sending && (
-                              <button
-                                onClick={() => { startEdit(m.id, m.content); setOpenMenuId(null); }}
-                                className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-parchment/80 hover:text-gold transition-colors text-xs"
-                              >
-                                Edit
-                              </button>
-                            )}
-                            {isLastAssistant && !sending && (
-                              <button
-                                onClick={() => { onRegenerate(); setOpenMenuId(null); }}
-                                className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-parchment/80 hover:text-gold transition-colors text-xs"
-                              >
-                                Regenerate
-                              </button>
-                            )}
-                            <div className="border-t border-parchment/10 my-0.5" />
-                            <button
-                              onClick={() => { confirmDelete(m.id); setOpenMenuId(null); }}
-                              className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-rose hover:text-rose transition-colors text-xs"
-                            >
-                              Delete
-                            </button>
+                          <button
+                            onClick={() => submitEdit(m.id)}
+                            disabled={!editDraft.trim() || savingEdit}
+                            className="text-xs bg-ink text-parchment px-3 py-1 rounded-full font-medium hover:brightness-125 focus-ring disabled:opacity-40"
+                          >
+                            {savingEdit ? "Saving…" : "Save & regenerate"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        aria-live={isLastAssistant ? "polite" : undefined}
+                        className={`max-w-[85%] sm:max-w-lg px-4 py-3 rounded-2xl whitespace-pre-wrap ${
+                          m.role === "user"
+                            ? "chat-bubble-user rounded-tr-sm"
+                            : "chat-bubble-assistant rounded-tl-sm"
+                        }`}
+                      >
+                        {isStreamingEmpty ? (
+                          <div className="typing-indicator-enhanced">
+                            <span className="text-xs text-parchment/60 mr-1">{character.name} is typing</span>
+                            <span className="typing-indicator-dot" />
+                            <span className="typing-indicator-dot" />
+                            <span className="typing-indicator-dot" />
                           </div>
+                        ) : (
+                          renderMessageContent(m.content)
                         )}
                       </div>
-                    </div>
-                  )}
+                    )}
+
+                    {/* Reactions */}
+                    {m.content && !isEditing && (
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        {REACTION_EMOJIS.map((emoji) => {
+                          const existing = msgReactions.find((r) => r.emoji === emoji);
+                          return (
+                            <button
+                              key={emoji}
+                              onClick={() => toggleReaction(m.id, emoji)}
+                              className={`reaction-btn ${existing?.reacted ? "reacted" : ""}`}
+                              aria-label={`React with ${emoji}${existing ? ` (${existing.count})` : ""}`}
+                            >
+                              {emoji}
+                              {existing && existing.count > 0 && <span className="text-[10px] font-medium">{existing.count}</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    {m.content && !isEditing && (
+                      <div className="flex items-center gap-3 mt-1 text-xs text-parchment/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="relative message-menu">
+                          <button
+                            onClick={() => toggleMenu(m.id)}
+                            className="hover:text-gold focus-ring rounded px-1"
+                            aria-label="Message options"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                              <circle cx="8" cy="3" r="1.5" />
+                              <circle cx="8" cy="8" r="1.5" />
+                              <circle cx="8" cy="13" r="1.5" />
+                            </svg>
+                          </button>
+                          {openMenuId === m.id && (
+                            <div className="absolute right-0 bottom-full mb-1 min-w-[140px] rounded-xl bg-plum-deep border border-parchment/15 shadow-xl py-1 z-50 overflow-hidden">
+                              <button
+                                onClick={() => { onCopy(m.id, m.content); setOpenMenuId(null); }}
+                                className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-parchment/80 hover:text-gold transition-colors text-xs"
+                              >
+                                {copiedId === m.id ? "Copied" : "Copy"}
+                              </button>
+                              {m.role === "assistant" && (
+                                <button
+                                  onClick={() => { onSpeak(m.id, m.content); setOpenMenuId(null); }}
+                                  disabled={loadingAudioId === m.id}
+                                  className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-parchment/80 hover:text-gold transition-colors disabled:opacity-50 text-xs"
+                                >
+                                  {loadingAudioId === m.id ? "Loading…" : playingId === m.id ? "⏸ Pause" : "🔊 Play"}
+                                </button>
+                              )}
+                              {m.role === "user" && !sendingRef.current && (
+                                <button
+                                  onClick={() => { startEdit(m.id, m.content); setOpenMenuId(null); }}
+                                  className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-parchment/80 hover:text-gold transition-colors text-xs"
+                                >
+                                  Edit
+                                </button>
+                              )}
+                              {isLastAssistant && !sendingRef.current && (
+                                <button
+                                  onClick={() => { onRegenerate(); setOpenMenuId(null); }}
+                                  className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-parchment/80 hover:text-gold transition-colors text-xs"
+                                >
+                                  Regenerate
+                                </button>
+                              )}
+                              <div className="border-t border-parchment/10 my-0.5" />
+                              <button
+                                onClick={() => { confirmDelete(m.id); setOpenMenuId(null); }}
+                                className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-rose hover:text-rose transition-colors text-xs"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -1220,6 +1254,34 @@ export default function ChatPage() {
             />
           )}
 
+          {expandedAvatar && (
+            <div
+              className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4 animate-fade-in"
+              onClick={() => setExpandedAvatar(null)}
+            >
+              <button
+                type="button"
+                onClick={() => setExpandedAvatar(null)}
+                className="absolute top-4 right-4 text-parchment/60 hover:text-parchment focus-ring rounded-full p-2 transition-colors"
+                aria-label="Close expanded avatar"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+              <div className="max-w-sm max-h-[80vh] rounded-2xl overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                {character.avatarUrl ? (
+                  <img src={resolveMediaUrl(character.avatarUrl)} alt={character.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-64 h-64 flex items-center justify-center text-8xl" style={{ backgroundColor: `${character.accentColor}30` }}>
+                    {character.avatarEmoji}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <audio ref={audioElRef} onEnded={() => setPlayingId(null)} className="hidden" />
 
           {voiceError && (
@@ -1249,12 +1311,12 @@ export default function ChatPage() {
           )}
 
           {error && (
-            <div className="px-6 py-2 flex items-center gap-3 text-sm">
+            <div className="px-4 sm:px-6 py-2 flex items-center gap-3 text-sm">
               <p className="text-rose">{error}</p>
               {lastActionRef.current && (
                 <button
                   onClick={onRetry}
-                  disabled={sending}
+                  disabled={sendingRef.current}
                   className="text-parchment/70 hover:text-gold focus-ring rounded px-2 py-0.5 border border-parchment/20 hover:border-gold/50 disabled:opacity-40 shrink-0"
                 >
                   Retry
@@ -1263,7 +1325,7 @@ export default function ChatPage() {
             </div>
           )}
 
-          <form onSubmit={onSend} className="flex gap-2 px-4 md:px-6 py-4 border-t border-parchment/10 items-end shrink-0">
+          <form onSubmit={onSend} className="flex gap-2 px-4 sm:px-6 py-3 sm:py-4 border-t border-parchment/10 items-end shrink-0">
             <div className="flex-1 relative">
               <textarea
                 ref={textareaRef}
@@ -1273,21 +1335,12 @@ export default function ChatPage() {
                   autoResize();
                 }}
                 onKeyDown={onKeyDown}
-                placeholder="Say something… (Shift+Enter for new line)"
+                placeholder="Message..."
                 rows={1}
-                className="w-full rounded-2xl bg-plum-deep border border-parchment/20 px-4 py-2.5 focus-ring resize-none max-h-40 overflow-y-auto"
+                className="w-full rounded-2xl bg-plum-deep/80 border border-parchment/15 px-4 py-2.5 text-sm focus-ring resize-none max-h-40 overflow-y-auto"
               />
-              {input.length > MAX_MESSAGE_LENGTH - 300 && (
-                <span
-                  className={`absolute bottom-2 right-3 text-[11px] select-none ${
-                    input.length >= MAX_MESSAGE_LENGTH ? "text-rose" : "text-parchment/40"
-                  }`}
-                >
-                  {input.length}/{MAX_MESSAGE_LENGTH}
-                </span>
-              )}
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setShowQuickActions((s) => !s)}
@@ -1301,7 +1354,7 @@ export default function ChatPage() {
                 <button
                   type="button"
                   onClick={stopGenerating}
-                  className="bg-rose/90 text-ink px-5 py-2.5 rounded-full font-medium hover:brightness-110 focus-ring shrink-0"
+                  className="bg-rose/90 text-ink px-4 py-2.5 rounded-full text-sm font-medium hover:brightness-110 focus-ring shrink-0"
                 >
                   ■ Stop
                 </button>
@@ -1309,7 +1362,7 @@ export default function ChatPage() {
                 <button
                   type="submit"
                   disabled={!input.trim()}
-                  className="bg-gold text-ink px-5 py-2.5 rounded-full font-medium hover:brightness-110 focus-ring disabled:opacity-50 shrink-0"
+                  className="bg-gold text-ink px-4 py-2.5 rounded-full text-sm font-medium hover:brightness-110 focus-ring disabled:opacity-50 shrink-0"
                 >
                   Send
                 </button>

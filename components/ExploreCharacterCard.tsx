@@ -42,7 +42,6 @@ export function pseudoViews(id: string): string {
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
   const n = 50_000 + (h % 4_950_000);
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 10_000) return `${(n / 1000).toFixed(1)}K`;
   return `${(n / 1000).toFixed(1)}K`;
 }
 

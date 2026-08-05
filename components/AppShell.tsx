@@ -148,8 +148,10 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
       </aside>
 
       <div className={`flex-1 flex flex-col min-w-0 ${variant === "chat" ? "h-screen" : "min-h-screen"}`}>
-        {/* Mobile top bar */}
-        <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-white/5 bg-gradient-to-r from-surface-raised to-plum-deep/60">
+        {variant !== "chat" && (
+          <>
+            {/* Mobile top bar */}
+            <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-white/5 bg-gradient-to-r from-surface-raised to-plum-deep/60">
           <Link href="/explore" className="font-display text-lg flex items-center gap-2">
             <Logo size={24} />
             <span className="shimmer-text">Atelier</span>
@@ -242,6 +244,8 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
               </div>
             </div>
           </nav>
+        )}
+      </>
         )}
         {children}
       </div>
