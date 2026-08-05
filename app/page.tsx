@@ -41,18 +41,18 @@ export default function Home() {
       />
 
       {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 py-5 md:px-12 border-b border-white/5 backdrop-blur-sm">
+      <header className="relative z-10 flex items-center justify-between px-4 py-4 sm:px-6 sm:py-5 md:px-12 md:py-5 border-b border-white/5 backdrop-blur-sm">
         <span className="font-display text-xl tracking-wide flex items-center gap-2">
           <span className="text-lg animate-bounce-slow">🌸</span>
           <span className="shimmer-text">Atelier</span>
         </span>
-        <nav className="flex gap-3 text-sm">
-          <Link href="/login" className="hover:text-gold focus-ring rounded-full px-4 py-2 transition-colors hover:bg-white/5">
+        <nav className="flex gap-2 sm:gap-3 text-xs sm:text-sm">
+          <Link href="/login" className="hover:text-gold focus-ring rounded-full px-3 py-1.5 sm:px-4 sm:py-2 transition-colors hover:bg-white/5">
             Log in
           </Link>
           <Link
             href="/signup"
-            className="bg-gold text-ink px-5 py-2 rounded-full font-medium hover:brightness-110 focus-ring btn-shine inline-block shadow-lg shadow-gold/20"
+            className="bg-gold text-ink px-3 py-1.5 sm:px-5 sm:py-2 rounded-full font-medium hover:brightness-110 focus-ring btn-shine inline-block shadow-lg shadow-gold/20 text-xs sm:text-base"
           >
             Get started
           </Link>

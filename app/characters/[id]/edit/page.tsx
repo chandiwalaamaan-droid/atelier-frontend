@@ -253,7 +253,7 @@ export default function EditCharacterPage() {
               )}
             </span>
             <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -329,7 +329,7 @@ export default function EditCharacterPage() {
               )}
             </div>
               <div className="flex flex-col gap-2">
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => bgFileInputRef.current?.click()}

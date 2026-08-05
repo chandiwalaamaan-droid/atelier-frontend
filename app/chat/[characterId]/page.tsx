@@ -226,6 +226,7 @@ export default function ChatPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const quickActionsRef = useRef<HTMLDivElement>(null);
+  const sendingRef = useRef(false);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-chat-theme", theme);
@@ -341,6 +342,7 @@ export default function ChatPage() {
       setError(message);
       onFatal(message);
       setSending(false);
+      sendingRef.current = false;
       return;
     }
 
@@ -388,6 +390,7 @@ export default function ChatPage() {
 
   async function sendMessage(userText: string, sceneDirective?: string) {
     setError("");
+    sendingRef.current = true;
     setSending(true);
     lastActionRef.current = { type: "send", text: userText, sceneDirective };
 
@@ -421,19 +424,21 @@ export default function ChatPage() {
       }
     } finally {
       setSending(false);
+      sendingRef.current = false;
       abortControllerRef.current = null;
       await refreshMessages();
     }
   }
 
   async function steerScene(directive: string) {
-    if (sending || messages.length === 0) return;
+    if (sendingRef.current || messages.length === 0) return;
     await sendMessage("", directive);
   }
 
   async function retryFailedSend() {
     const action = lastActionRef.current;
-    if (!action || action.type !== "send" || sending) return;
+    if (!action || action.type !== "send" || sendingRef.current) return;
+    sendingRef.current = true;
     setError("");
     setSending(true);
     const assistantId = `local-${Date.now()}-a`;
@@ -462,14 +467,16 @@ export default function ChatPage() {
       }
     } finally {
       setSending(false);
+      sendingRef.current = false;
       abortControllerRef.current = null;
     }
   }
 
   async function onSend(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!input.trim() || sending) return;
-
+    if (!input.trim() || sendingRef.current) return;
+    sendingRef.current = true;
+    setSending(true);
     const userText = input.trim();
     setInput("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
@@ -477,7 +484,7 @@ export default function ChatPage() {
   }
 
   async function onRegenerate() {
-    if (sending || messages.length === 0) return;
+    if (sendingRef.current || messages.length === 0) return;
     const last = messages[messages.length - 1];
     if (last.role !== "assistant") return;
     const previousContent = last.content;
@@ -506,6 +513,7 @@ export default function ChatPage() {
       }
     } finally {
       setSending(false);
+      sendingRef.current = false;
       abortControllerRef.current = null;
       await refreshMessages();
     }
@@ -513,7 +521,7 @@ export default function ChatPage() {
 
   async function onRetry() {
     const action = lastActionRef.current;
-    if (!action || sending) return;
+    if (!action || sendingRef.current) return;
     if (action.type === "send") await retryFailedSend();
     else await onRegenerate();
   }
@@ -557,7 +565,7 @@ export default function ChatPage() {
   }
 
   function startEdit(id: string, content: string) {
-    if (sending) return;
+    if (sendingRef.current) return;
     setEditingId(id);
     setEditDraft(content);
   }
@@ -608,6 +616,7 @@ export default function ChatPage() {
     } finally {
       setSavingEdit(false);
       setSending(false);
+      sendingRef.current = false;
       abortControllerRef.current = null;
       await refreshMessages();
     }
@@ -723,7 +732,7 @@ export default function ChatPage() {
       onSend(e as unknown as FormEvent<HTMLFormElement>);
       return;
     }
-    if (e.key === "ArrowUp" && !input && !sending && !editingId) {
+    if (e.key === "ArrowUp" && !input && !sendingRef.current && !editingId) {
       for (let i = messages.length - 1; i >= 0; i--) {
         if (messages[i].role === "user") {
           e.preventDefault();
@@ -765,7 +774,7 @@ export default function ChatPage() {
               </div>
             </header>
             <div className="flex-1 px-6 py-6 space-y-4">
-              <div className="max-w-lg h-16 rounded-2xl bg-surface-card" />
+              <div className="max-w-[85%] sm:max-w-lg h-16 rounded-2xl bg-surface-card" />
               <div className="max-w-xs h-10 ml-auto rounded-2xl bg-white/5" />
             </div>
           </main>
@@ -779,17 +788,17 @@ export default function ChatPage() {
       <AppShell variant="chat">
         <main className="flex-1 flex flex-col min-h-0 relative">
           {/* Header */}
-          <header className="flex items-center gap-3 px-4 md:px-6 py-3 border-b border-white/10 shrink-0 bg-gradient-to-r from-surface-raised to-plum-deep/30">
-            <button onClick={() => router.push("/explore")} className="text-parchment/60 hover:text-gold focus-ring rounded px-2 transition-colors">
-              ←
-            </button>
+          <header className="px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 border-b border-white/10 shrink-0 bg-gradient-to-r from-surface-raised to-plum-deep/30">
             {character && (
-              <>
-                <div className="avatar-ring-animated relative text-xl w-9 h-9 flex items-center justify-center rounded-full overflow-hidden focus-ring shrink-0 cursor-pointer" style={{ "--ring-color": `${character.accentColor}80` } as React.CSSProperties}>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <button onClick={() => router.push("/explore")} className="text-parchment/60 hover:text-gold focus-ring rounded px-2 transition-colors shrink-0">
+                  ←
+                </button>
+                <div className="avatar-ring-animated relative text-xl w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full overflow-hidden focus-ring shrink-0" style={{ "--ring-color": `${character.accentColor}80` } as React.CSSProperties}>
                   <button
                     type="button"
                     onClick={() => setAvatarModalOpen(true)}
-                    className="relative text-xl w-9 h-9 flex items-center justify-center rounded-full overflow-hidden focus-ring shrink-0 shadow-lg"
+                    className="relative text-xl w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full overflow-hidden focus-ring shrink-0 shadow-lg"
                     style={{ backgroundColor: `${character.accentColor}30` }}
                     title="Change portrait"
                   >
@@ -805,26 +814,26 @@ export default function ChatPage() {
                     />
                   </button>
                 </div>
-                <div className="flex-1">
-                  <p className="font-display text-lg">{character.name}</p>
-                  {character.tagline && <p className="text-xs text-parchment/50">{character.tagline}</p>}
+                <div className="flex-1 min-w-0">
+                  <p className="font-display text-base sm:text-lg truncate">{character.name}</p>
+                  {character.tagline && <p className="text-[11px] sm:text-xs text-parchment/50 truncate">{character.tagline}</p>}
                 </div>
 
                 {/* Relationship Meter */}
                 <div className="relationship-meter hidden sm:flex" title={`Relationship level: ${relationshipLevel}%`}>
                   <span>💖</span>
-                  <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                  <div className="w-12 sm:w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
                     <div className="relationship-meter-fill h-full rounded-full" style={{ width: `${relationshipLevel}%` }} />
                   </div>
                 </div>
 
                 {/* Theme Toggle */}
-                <div className="hidden md:flex items-center gap-1">
+                <div className="flex items-center gap-0.5 sm:gap-1">
                   {CHAT_THEMES.map((t) => (
                     <button
                       key={t.id}
                       onClick={() => setTheme(t.id)}
-                      className={`theme-toggle-btn ${theme === t.id ? "border-gold/40 text-gold" : ""}`}
+                      className={`theme-toggle-btn w-7 h-7 text-xs sm:w-8 sm:h-8 sm:text-sm ${theme === t.id ? "border-gold/40 text-gold" : ""}`}
                       title={`${t.label} theme`}
                       aria-label={`Switch to ${t.label} theme`}
                     >
@@ -836,13 +845,13 @@ export default function ChatPage() {
                 <button
                   type="button"
                   onClick={() => setEnginePickerOpen(true)}
-                  className="flex items-center gap-2 max-w-[11rem] sm:max-w-xs rounded-full border border-parchment/15 bg-plum/60 hover:border-gold/40 hover:bg-plum/80 pl-1.5 pr-3 py-1 focus-ring shrink-0 transition-all"
+                  className="flex items-center justify-center gap-0 sm:gap-2 max-w-[2.25rem] sm:max-w-[11rem] md:max-w-xs rounded-full border border-parchment/15 bg-plum/60 hover:border-gold/40 hover:bg-plum/80 p-1 sm:pl-1.5 sm:pr-3 py-1 focus-ring shrink-0 transition-all"
                   title="Choose roleplay engine"
                 >
-                  <span className="w-8 h-8 rounded-full flex items-center justify-center text-lg bg-plum-deep/80 shrink-0 shadow-inner">
+                  <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-sm sm:text-lg bg-plum-deep/80 shrink-0 shadow-inner">
                     {activeEngineEmoji(displayEngineId)}
                   </span>
-                  <span className="min-w-0 text-left">
+                  <span className="hidden sm:inline min-w-0 text-left">
                     <span className="block text-xs font-medium text-parchment truncate leading-tight">
                       {activeEngineLabel(roleplayPrefs, displayEngineId)}
                     </span>
@@ -853,7 +862,7 @@ export default function ChatPage() {
                 </button>
                 <button
                   onClick={() => setMemoryOpen(true)}
-                  className="text-sm text-parchment/50 hover:text-gold focus-ring rounded px-2 py-1 transition-colors"
+                  className="text-[11px] sm:text-xs md:text-sm text-parchment/50 hover:text-gold focus-ring rounded px-1.5 sm:px-2 py-1 transition-colors shrink-0"
                   title="What this character remembers about your conversation"
                 >
                   Memory
@@ -861,7 +870,7 @@ export default function ChatPage() {
                 <button
                   onClick={onResetConversation}
                   disabled={resetting || messages.length === 0}
-                  className="text-sm text-parchment/50 hover:text-rose focus-ring rounded px-2 py-1 disabled:opacity-40 transition-colors"
+                  className="text-[11px] sm:text-xs md:text-sm text-parchment/50 hover:text-rose focus-ring rounded px-1.5 sm:px-2 py-1 disabled:opacity-40 transition-colors shrink-0"
                   title="Clear this conversation"
                 >
                   Clear
@@ -882,18 +891,18 @@ export default function ChatPage() {
                     URL.revokeObjectURL(url);
                   }}
                   disabled={messages.length === 0}
-                  className="text-sm text-parchment/50 hover:text-gold focus-ring rounded px-2 py-1 disabled:opacity-40 transition-colors"
+                  className="text-[11px] sm:text-xs md:text-sm text-parchment/50 hover:text-gold focus-ring rounded px-1.5 sm:px-2 py-1 disabled:opacity-40 transition-colors shrink-0"
                   title="Export conversation as text"
                 >
                   Export
                 </button>
                 <Link
                   href={`/characters/${character.id}/edit`}
-                  className="text-sm text-parchment/50 hover:text-gold focus-ring rounded px-2 py-1 transition-colors"
+                  className="text-[11px] sm:text-xs md:text-sm text-parchment/50 hover:text-gold focus-ring rounded px-1.5 sm:px-2 py-1 transition-colors shrink-0"
                 >
                   Edit
                 </Link>
-              </>
+              </div>
             )}
           </header>
 
@@ -917,7 +926,7 @@ export default function ChatPage() {
           >
             {character && messages.length === 0 && (
               <>
-                <div className="max-w-lg chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 message-slide-in">
+                <div className="max-w-[85%] sm:max-w-lg chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 message-slide-in">
                   {character.greeting}
                 </div>
                 <div className="flex flex-wrap gap-2 pt-1">
@@ -945,7 +954,7 @@ export default function ChatPage() {
               return (
                 <div key={m.id} className="group message-slide-in">
                    {isEditing ? (
-                     <div className="max-w-lg ml-auto rounded-2xl rounded-tr-sm bg-plum-deep/90 border border-gold/30 p-3 shadow-lg">
+                     <div className="max-w-[85%] sm:max-w-lg ml-auto rounded-2xl rounded-tr-sm bg-plum-deep/90 border border-gold/30 p-3 shadow-lg">
                        <textarea
                          ref={editTextareaRef}
                          autoFocus
@@ -984,7 +993,7 @@ export default function ChatPage() {
                   ) : (
                     <div
                       aria-live={isLastAssistant ? "polite" : undefined}
-                      className={`max-w-lg px-4 py-3 rounded-2xl whitespace-pre-wrap ${
+                      className={`max-w-[85%] sm:max-w-lg px-4 py-3 rounded-2xl whitespace-pre-wrap ${
                         m.role === "user"
                           ? "chat-bubble-user ml-auto rounded-tr-sm"
                           : "chat-bubble-assistant rounded-tl-sm"
@@ -1254,7 +1263,7 @@ export default function ChatPage() {
             </div>
           )}
 
-          <form onSubmit={onSend} className="flex gap-2 px-4 md:px-6 py-4 border-t border-parchment/10 items-end">
+          <form onSubmit={onSend} className="flex gap-2 px-4 md:px-6 py-4 border-t border-parchment/10 items-end shrink-0">
             <div className="flex-1 relative">
               <textarea
                 ref={textareaRef}

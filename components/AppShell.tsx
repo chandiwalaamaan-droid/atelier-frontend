@@ -33,6 +33,7 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
   const pathname = usePathname();
   const [chats, setChats] = useState<ChatPreview[]>([]);
   const [displayName, setDisplayName] = useState("");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     apiFetch("/api/auth/me")
@@ -153,20 +154,95 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
             <Logo size={24} />
             <span className="shimmer-text">Atelier</span>
           </Link>
-          <nav className="flex gap-1 text-xs">
-            {NAV.slice(0, 4).map(({ href, label }) => (
-              <Link
-                key={href}
-                href={href}
-                className={`px-2 py-1 rounded-lg transition-colors ${
-                  pathname === href ? "bg-white/10 text-parchment" : "text-parchment/50 hover:text-parchment/80"
-                }`}
-              >
-                {label.replace("Atelier+", "+")}
-              </Link>
-            ))}
-          </nav>
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen((s) => !s)}
+            className="text-parchment/70 hover:text-parchment focus-ring rounded-lg px-2 py-1 transition-colors"
+            aria-label="Toggle menu"
+            aria-expanded={mobileMenuOpen}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {mobileMenuOpen ? (
+                <>
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </>
+              ) : (
+                <>
+                  <line x1="4" y1="6" x2="20" y2="6" />
+                  <line x1="4" y1="12" x2="20" y2="12" />
+                  <line x1="4" y1="18" x2="20" y2="18" />
+                </>
+              )}
+            </svg>
+          </button>
         </header>
+
+        {/* Mobile menu */}
+        {mobileMenuOpen && (
+          <nav className="md:hidden border-b border-white/5 bg-surface-raised/95 backdrop-blur-sm px-4 py-3 animate-fade-in">
+            <div className="space-y-1 mb-4">
+              {NAV.map(({ href, label, icon, badge }) => {
+                const active = pathname === href || (href === "/dashboard" && pathname?.startsWith("/characters"));
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 focus-ring ${
+                      active
+                        ? "bg-gradient-to-r from-gold/15 to-gold/5 text-parchment font-medium border border-gold/10"
+                        : "text-parchment/55 hover:text-parchment hover:bg-white/5 border border-transparent"
+                    }`}
+                  >
+                    <span className={`w-5 text-center text-base ${active ? "text-gold" : "opacity-80"}`}>{icon}</span>
+                    <span className="flex-1">{label}</span>
+                    {badge && (
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gold/25 text-gold border border-gold/30">
+                        {badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+            <div className="pt-3 border-t border-white/5">
+              <p className="text-[11px] font-medium text-parchment/30 uppercase tracking-widest mb-2">Recent chats</p>
+              {chats.length === 0 && (
+                <p className="px-3 py-2 text-xs text-parchment/30 text-center italic">No chats yet</p>
+              )}
+              <div className="space-y-1 max-h-[200px] overflow-y-auto scrollbar-thin">
+                {chats.map((c) => (
+                  <Link
+                    key={c.id}
+                    href={`/chat/${c.id}`}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-all duration-200 focus-ring border ${
+                      pathname === `/chat/${c.id}`
+                        ? "bg-white/8 border-white/5"
+                        : "hover:bg-white/5 border-transparent"
+                    }`}
+                  >
+                    <span
+                      className="w-7 h-7 shrink-0 rounded-full flex items-center justify-center overflow-hidden text-xs ring-1 ring-white/5"
+                      style={{ backgroundColor: `${c.accentColor}30` }}
+                    >
+                      {c.avatarUrl ? (
+                        <img src={resolveMediaUrl(c.avatarUrl)} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        c.avatarEmoji
+                      )}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-parchment/85 font-medium">{c.name}</span>
+                      <span className="block truncate text-parchment/35 leading-tight">{c.lastMessagePreview}</span>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </nav>
+        )}
         {children}
       </div>
     </div>

@@ -83,7 +83,7 @@ export default function MePage() {
             </button>
           </div>
 
-          <div className="flex gap-6 border-b border-white/10 mb-6 text-sm">
+          <div className="flex flex-wrap gap-3 sm:gap-6 border-b border-white/10 mb-6 text-sm">
             {(
               [
                 ["creations", "Creations"],
