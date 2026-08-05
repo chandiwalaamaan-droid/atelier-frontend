@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
+import { setAuthToken } from "@/lib/authToken";
 
 /**
  * Shown right after Google Sign-In reports isNewUser: true. Atelier requires
@@ -37,12 +38,13 @@ export function GoogleCompleteProfile({
       method: "POST",
       body: JSON.stringify({ credential, displayName, birthdate, tosAccepted }),
     });
+    const data = await res.json().catch(() => ({}));
     setLoading(false);
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
       setError(data.error || "Something went wrong.");
       return;
     }
+    setAuthToken(data.token);
     onDone();
   }
 

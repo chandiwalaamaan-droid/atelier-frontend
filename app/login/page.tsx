@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/api";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { GoogleCompleteProfile } from "@/components/GoogleCompleteProfile";
 import { clearAuthCache } from "@/lib/authCache";
+import { setAuthToken } from "@/lib/authToken";
 import Logo from "@/components/Logo";
 
 export default function LoginPage() {
@@ -43,12 +44,13 @@ function LoginForm() {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
+    const data = await res.json().catch(() => ({}));
     setLoading(false);
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
       setError(data.error || "Something went wrong.");
       return;
     }
+    setAuthToken(data.token);
     goToNext();
   }
 
@@ -69,6 +71,7 @@ function LoginForm() {
       setGooglePending({ credential, suggestedDisplayName: data.suggestedDisplayName || "" });
       return;
     }
+    setAuthToken(data.token);
     goToNext();
   }
 

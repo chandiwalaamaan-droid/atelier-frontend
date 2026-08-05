@@ -2,24 +2,35 @@
 // than this frontend (Next.js, deployed on Netlify), so every request needs
 // an absolute URL plus credentials: "include" so the cross-site session
 // cookie is sent/received (see the backend's lib/auth.ts for the matching
-// SameSite=None; Secure cookie config).
+// SameSite=None; Secure cookie config). Some mobile browsers (iOS Safari's
+// tracking prevention, many in-app browsers) silently drop that cookie
+// entirely, so we also attach the token from lib/authToken.ts as a Bearer
+// header on every request — the backend checks the cookie first and falls
+// back to this header, so sending both is harmless wherever the cookie
+// does work.
+import { getAuthToken } from "@/lib/authToken";
+
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000").replace(/\/$/, "");
 
 /**
- * fetch wrapper for JSON API calls. Prefixes API_URL and always sends
- * cookies cross-site. Pass a FormData body (e.g. avatar upload) as-is —
- * this won't set a Content-Type header for you in that case, which is
- * correct (the browser sets the multipart boundary itself).
+ * fetch wrapper for JSON API calls. Prefixes API_URL, always sends cookies
+ * cross-site, and attaches the stored session token (if any) as a Bearer
+ * header. Pass a FormData body (e.g. avatar upload) as-is — this won't set
+ * a Content-Type header for you in that case, which is correct (the
+ * browser sets the multipart boundary itself).
  */
 export function apiFetch(path: string, init: RequestInit = {}) {
   const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData;
+  const token = getAuthToken();
   return fetch(`${API_URL}${path}`, {
     ...init,
     credentials: "include",
     cache: "no-store",
-    headers: isFormData
-      ? init.headers
-      : { "Content-Type": "application/json", ...(init.headers || {}) },
+    headers: {
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init.headers || {}),
+    },
   });
 }
 

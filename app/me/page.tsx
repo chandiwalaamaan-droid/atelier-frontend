@@ -8,6 +8,7 @@ import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import { PremiumLockBadge } from "@/components/PremiumActionButton";
 import { clearAuthCache } from "@/lib/authCache";
+import { clearAuthToken } from "@/lib/authToken";
 
 type Character = {
   id: string;
@@ -48,6 +49,7 @@ export default function MePage() {
   async function logout() {
     await apiFetch("/api/auth/logout", { method: "POST" });
     clearAuthCache();
+    clearAuthToken();
     router.push("/");
     router.refresh();
   }
