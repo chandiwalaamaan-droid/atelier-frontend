@@ -238,12 +238,12 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (!openMenuId) return;
-    function onPointerDown(e: PointerEvent) {
+    function onClick(e: MouseEvent) {
       const target = e.target as HTMLElement;
       if (!target.closest(".message-menu")) setOpenMenuId(null);
     }
-    window.addEventListener("pointerdown", onPointerDown);
-    return () => window.removeEventListener("pointerdown", onPointerDown);
+    window.addEventListener("click", onClick, true);
+    return () => window.removeEventListener("click", onClick, true);
   }, [openMenuId]);
 
   useEffect(() => {
@@ -296,14 +296,14 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (!chatMenuOpen) return;
-    function onPointerDown(e: PointerEvent) {
+    function onClick(e: MouseEvent) {
       const target = e.target as HTMLElement;
-      if (!target.closest(".message-menu") && !target.closest("[aria-label=\"Chat menu\"]")) {
+      if (!target.closest("[aria-label=\"Chat menu\"]")) {
         setChatMenuOpen(false);
       }
     }
-    window.addEventListener("pointerdown", onPointerDown);
-    return () => window.removeEventListener("pointerdown", onPointerDown);
+    window.addEventListener("click", onClick, true);
+    return () => window.removeEventListener("click", onClick, true);
   }, [chatMenuOpen]);
 
   useEffect(() => {
@@ -959,24 +959,26 @@ export default function ChatPage() {
               return (
                 <div key={m.id} className="group message-slide-in flex gap-2 sm:gap-3">
                   {/* Avatar */}
-                  <div
-                    className={`w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-full overflow-hidden ring-1 ring-white/10 ${m.role === "assistant" ? "cursor-pointer" : "bg-plum-deep/80"}`}
-                    style={m.role === "assistant" ? { backgroundColor: `${character.accentColor}30` } : undefined}
-                    onClick={() => m.role === "assistant" && setExpandedAvatar(character.avatarUrl ?? null)}
-                  >
-                    {m.role === "assistant" ? (
-                      character.avatarUrl ? (
+                  {m.role === "assistant" ? (
+                    <div
+                      className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-full overflow-hidden cursor-pointer ring-1 ring-white/10"
+                      style={{ backgroundColor: `${character.accentColor}30` }}
+                      onClick={() => setExpandedAvatar(character.avatarUrl ?? null)}
+                    >
+                      {character.avatarUrl ? (
                         <img src={resolveMediaUrl(character.avatarUrl)} alt={character.name} className="w-full h-full object-cover" />
                       ) : (
                         <span className="absolute inset-0 flex items-center justify-center text-lg">{character.avatarEmoji}</span>
-                      )
-                    ) : (
-                      <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-parchment/80">{userInitial}</span>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-full overflow-hidden bg-plum-deep/80 flex items-center justify-center text-xs font-semibold text-parchment/80">
+                      {userInitial}
+                    </div>
+                  )}
 
                   {/* Content */}
-                  <div className="flex-1 min-w-0">
+                  <div className={`flex-1 min-w-0 ${m.role === "user" ? "ml-auto" : ""}`}>
                     {/* Name + badge + time */}
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-medium text-sm text-parchment/90 truncate">
