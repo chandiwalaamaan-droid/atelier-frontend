@@ -479,7 +479,7 @@ export default function DashboardPage() {
       )}
 
       {characters === null && (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <CharacterCardSkeleton key={i} />
           ))}
@@ -503,7 +503,7 @@ export default function DashboardPage() {
           </div>
 
           <p className="text-sm text-parchment/50 mb-3 font-display">Or try one of these</p>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
             {STARTER_TEMPLATES.map((t) => (
               <button
                 key={t.name}
@@ -528,7 +528,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {characters?.map((c) => {
           const preview = c.lastMessagePreview?.trim();
           const when = relativeTime(c.lastActivityAt);

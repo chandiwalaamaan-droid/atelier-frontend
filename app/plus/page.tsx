@@ -75,7 +75,7 @@ export default function PlusPage() {
             ))}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 max-w-6xl mx-auto">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4 max-w-6xl mx-auto">
             {MEMBERSHIP_TIERS.map((tier) => {
               const price =
                 tier.monthlyPrice === 0 ? 0 : tier.monthlyPrice * cycleMultiplier(cycle);

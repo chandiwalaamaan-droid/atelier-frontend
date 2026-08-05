@@ -149,7 +149,7 @@ export default function Home() {
       </section>
 
       {/* How it works */}
-      <div className="relative z-10 stitched mx-6 mb-12 md:mx-12 rounded-2xl bg-gradient-to-br from-plum/40 via-plum/50 to-plum-deep/60 backdrop-blur-sm px-8 py-10 grid gap-8 md:grid-cols-3 border-glow-gold">
+      <div className="relative z-10 stitched mx-6 mb-12 md:mx-12 rounded-2xl bg-gradient-to-br from-plum/40 via-plum/50 to-plum-deep/60 backdrop-blur-sm px-8 py-10 grid gap-8 grid-cols-1 md:grid-cols-3 border-glow-gold">
         <div className="animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
           <div className="w-10 h-10 rounded-full bg-gold/15 flex items-center justify-center mb-3">
             <span className="text-gold font-display font-bold">01</span>

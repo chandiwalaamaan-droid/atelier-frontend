@@ -45,7 +45,7 @@ export default function WalletPage() {
             </button>
           </header>
 
-          <div className="grid md:grid-cols-2 gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
             <div className="rounded-2xl bg-surface-card border border-white/10 p-6 flex items-center gap-4">
               <span className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500/30 to-rose-400/30 flex items-center justify-center text-3xl">
                 ✨

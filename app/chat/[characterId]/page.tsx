@@ -298,7 +298,7 @@ export default function ChatPage() {
     if (!chatMenuOpen) return;
     function onClick(e: MouseEvent) {
       const target = e.target as HTMLElement;
-      if (!target.closest("[aria-label=\"Chat menu\"]")) {
+      if (!target.closest(".chat-menu")) {
         setChatMenuOpen(false);
       }
     }
@@ -864,7 +864,7 @@ export default function ChatPage() {
                   </div>
                 </div>
 
-                <div className="relative">
+                <div className="relative chat-menu">
                   <button
                     type="button"
                     onClick={() => setChatMenuOpen((s) => !s)}
@@ -1033,7 +1033,7 @@ export default function ChatPage() {
                     ) : (
                       <div
                         aria-live={isLastAssistant ? "polite" : undefined}
-                        className={`max-w-[85%] sm:max-w-lg px-4 py-3 rounded-2xl whitespace-pre-wrap ${
+                        className={`max-w-[85%] sm:max-w-lg px-4 py-3 rounded-2xl whitespace-pre-wrap break-words ${
                           m.role === "user"
                             ? "chat-bubble-user rounded-tr-sm"
                             : "chat-bubble-assistant rounded-tl-sm"
@@ -1088,7 +1088,9 @@ export default function ChatPage() {
                             </svg>
                           </button>
                           {openMenuId === m.id && (
-                            <div className="absolute right-0 bottom-full mb-1 min-w-[140px] rounded-xl bg-plum-deep border border-parchment/15 shadow-xl py-1 z-50 overflow-hidden">
+                            <div
+                              className={`absolute ${m.role === "user" ? "right-0" : "left-0"} bottom-full mb-1 min-w-[140px] rounded-xl bg-plum-deep border border-parchment/15 shadow-xl py-1 z-50 overflow-hidden`}
+                            >
                               <button
                                 onClick={() => { onCopy(m.id, m.content); setOpenMenuId(null); }}
                                 className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-parchment/80 hover:text-gold transition-colors text-xs"
