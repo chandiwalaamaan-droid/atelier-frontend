@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "@/lib/api";
 import RequireAuth from "@/components/RequireAuth";
@@ -31,7 +31,6 @@ const EMOJI_CHOICES = ["🌸", "🦊", "🌙", "⚔️", "🕯️", "🐉", "☕
 
 export default function EditCharacterPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bgFileInputRef = useRef<HTMLInputElement>(null);
 

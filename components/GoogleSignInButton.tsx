@@ -21,6 +21,7 @@ export function GoogleSignInButton({
   text: "signin_with" | "signup_with";
   onCredential: (credential: string) => void;
 }) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const onCredentialRef = useRef(onCredential);
   onCredentialRef.current = onCredential;
@@ -39,7 +40,12 @@ export function GoogleSignInButton({
         });
         // Fixed pixel width, not percentage — GIS doesn't support responsive
         // sizing natively, so measure the actual container instead of guessing.
-        const measuredWidth = Math.round(containerRef.current.getBoundingClientRect().width) || 320;
+        // Measuring wrapperRef (not containerRef) matters: containerRef starts
+        // as display:none until `ready`, and getBoundingClientRect() on a
+        // display:none element always returns 0 — which used to silently
+        // fall back to a hardcoded 320px and overflow on any narrower phone.
+        // wrapperRef is never hidden, so it always reports the real width.
+        const measuredWidth = Math.round(wrapperRef.current?.getBoundingClientRect().width || 0) || 320;
         window.google.accounts.id.renderButton(containerRef.current, {
           theme: "filled_black",
           shape: "pill",
@@ -62,7 +68,7 @@ export function GoogleSignInButton({
   if (!GOOGLE_CLIENT_ID) return null;
 
   return (
-    <div>
+    <div ref={wrapperRef}>
       <div
         ref={containerRef}
         className="flex justify-center"

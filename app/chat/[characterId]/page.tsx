@@ -90,11 +90,6 @@ function buildChatBody(
 
 const MAX_MESSAGE_LENGTH = 4000;
 
-function slugifyAvatar(name: string): string {
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  return `/assets/characters/${slug}.png`;
-}
-
 function formatTime(iso?: string) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -264,6 +259,7 @@ export default function ChatPage() {
         if (!data) return;
         setCharacter(data.character);
         setMessages(data.messages);
+        if (typeof data.relationshipLevel === "number") setRelationshipLevel(data.relationshipLevel);
         const prefs = loadRoleplayPreferences(characterId, data.character.isExplicit ?? false);
         setRoleplayPrefs(prefs);
       })
@@ -278,14 +274,6 @@ export default function ChatPage() {
     if (!character) return;
     saveRoleplayPreferences(character.id, roleplayPrefs);
   }, [character, roleplayPrefs]);
-
-  useEffect(() => {
-    const msgs = messages.length;
-    const explicit = roleplayPrefs.explicitMode;
-    let level = Math.min(100, Math.floor((msgs / 50) * 100));
-    if (explicit) level = Math.min(100, level + 15);
-    setRelationshipLevel(level);
-  }, [messages.length, roleplayPrefs.explicitMode]);
 
   useEffect(() => {
     apiFetch("/api/auth/me")
@@ -400,6 +388,8 @@ export default function ChatPage() {
           const message = typeof ev.message === "string" ? ev.message : "Something went wrong.";
           setError(message);
           onFatal(message);
+        } else if (ev.type === "relationship" && typeof ev.level === "number") {
+          setRelationshipLevel(ev.level);
         }
       }
       setMessages((prev: Message[]) =>
@@ -582,8 +572,10 @@ export default function ChatPage() {
     setResetConfirmOpen(false);
     setResetting(true);
     try {
-      await apiFetch(`/api/chat/${characterId}`, { method: "DELETE" });
+      const r = await apiFetch(`/api/chat/${characterId}`, { method: "DELETE" });
+      const data = await r.json().catch(() => ({}));
       setMessages([]);
+      setRelationshipLevel(typeof data.relationshipLevel === "number" ? data.relationshipLevel : 0);
       setError("");
     } finally {
       setResetting(false);
@@ -603,8 +595,10 @@ export default function ChatPage() {
     if (!deleteTargetId) return;
     setDeleteConfirmOpen(false);
     try {
-      await apiFetch(`/api/chat/${characterId}/messages/${deleteTargetId}`, { method: "DELETE" });
+      const r = await apiFetch(`/api/chat/${characterId}/messages/${deleteTargetId}`, { method: "DELETE" });
+      const data = await r.json().catch(() => ({}));
       setMessages((prev) => prev.filter((m) => m.id !== deleteTargetId));
+      if (typeof data.relationshipLevel === "number") setRelationshipLevel(data.relationshipLevel);
     } catch {
       setError("Couldn't delete that message.");
     } finally {
@@ -857,9 +851,18 @@ export default function ChatPage() {
                   </div>
                   <div className="min-w-0">
                     <p className="font-display text-base sm:text-lg truncate leading-tight">{character.name}</p>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       <span className="text-[10px] text-blue-400">✓</span>
                       <span className="text-[10px] text-parchment/40">Verified character</span>
+                      <span className="text-parchment/20 text-[10px]">·</span>
+                      <button
+                        type="button"
+                        onClick={() => setEnginePickerOpen(true)}
+                        className="text-[10px] text-parchment/50 hover:text-gold transition-colors truncate"
+                        title="Change roleplay engine"
+                      >
+                        {activeEngineEmoji(displayEngineId)} {activeEngineLabel(roleplayPrefs, displayEngineId)}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -889,9 +892,25 @@ export default function ChatPage() {
                   </button>
                   {chatMenuOpen && (
                     <div className="absolute right-0 top-full mt-1 w-44 bg-plum-deep border border-parchment/15 rounded-xl shadow-xl py-1 z-50 animate-fade-in">
+                      <div className="px-3 py-2">
+                        <div className="flex items-center justify-between text-[10px] text-parchment/40 mb-1">
+                          <span>Closeness</span>
+                          <span>{relationshipLevel}%</span>
+                        </div>
+                        <div className="h-1 rounded-full bg-white/10 overflow-hidden">
+                          <div className="h-full bg-gold rounded-full transition-all" style={{ width: `${relationshipLevel}%` }} />
+                        </div>
+                      </div>
+                      <div className="border-t border-parchment/10 my-0.5" />
                       <button onClick={() => { setEnginePickerOpen(true); setChatMenuOpen(false); }} className="w-full text-left px-3 py-2 text-xs text-parchment/80 hover:bg-white/5 transition-colors">🎛 Roleplay engine</button>
                       <button onClick={() => { setMemoryOpen(true); setChatMenuOpen(false); }} className="w-full text-left px-3 py-2 text-xs text-parchment/80 hover:bg-white/5 transition-colors">🧠 Memory</button>
-                      <button onClick={() => { onResetConversation(); setChatMenuOpen(false); }} className="w-full text-left px-3 py-2 text-xs text-parchment/80 hover:bg-white/5 transition-colors">🗑 Clear conversation</button>
+                      <button
+                        onClick={() => { onResetConversation(); setChatMenuOpen(false); }}
+                        disabled={resetting}
+                        className="w-full text-left px-3 py-2 text-xs text-parchment/80 hover:bg-white/5 transition-colors disabled:opacity-50"
+                      >
+                        {resetting ? "Clearing…" : "🗑 Clear conversation"}
+                      </button>
                       <button onClick={() => { exportChat(); setChatMenuOpen(false); }} className="w-full text-left px-3 py-2 text-xs text-parchment/80 hover:bg-white/5 transition-colors">📤 Export chat</button>
                       <Link href={`/characters/${character.id}/edit`} onClick={() => setChatMenuOpen(false)} className="block w-full text-left px-3 py-2 text-xs text-parchment/80 hover:bg-white/5 transition-colors">✏️ Edit character</Link>
                       <div className="border-t border-parchment/10 my-0.5" />
@@ -978,7 +997,7 @@ export default function ChatPage() {
                   )}
 
                   {/* Content */}
-                  <div className={`flex-1 min-w-0 ${m.role === "user" ? "ml-auto" : ""}`}>
+                  <div className={`flex-1 min-w-0 flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
                     {/* Name + badge + time */}
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-medium text-sm text-parchment/90 truncate">
