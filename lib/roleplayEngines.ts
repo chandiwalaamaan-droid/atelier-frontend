@@ -16,7 +16,7 @@ export type RoleplayEngine = {
   id: Exclude<RoleplayEngineId, "custom">;
   name: string;
   emoji: string;
-  /** Intensity / depth hint (1–10), not a paywall — all engines are free on Atelier. */
+  /** Intensity / depth hint (1–10), not a paywall — all engines are free on Rolichat. */
   badge: number;
   tag?: string;
   description: string;

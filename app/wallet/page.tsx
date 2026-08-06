@@ -61,7 +61,7 @@ export default function WalletPage() {
               href="/plus"
               className="rounded-2xl promo-banner border border-gold/20 p-6 flex flex-col justify-center focus-ring"
             >
-              <p className="text-xs uppercase tracking-wider text-gold/90 mb-1">Join Atelier+ membership</p>
+              <p className="text-xs uppercase tracking-wider text-gold/90 mb-1">Join Rolichat+ membership</p>
               <p className="text-lg font-display">5 premium engines · extended memory · no ads (later)</p>
               <PremiumLockBadge />
             </Link>

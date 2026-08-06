@@ -23,7 +23,7 @@ type AppShellProps = {
 
 const NAV: { href: string; label: string; icon: string; badge?: string }[] = [
   { href: "/explore", label: "Explore", icon: "⌂" },
-  { href: "/plus", label: "Atelier+", icon: "♛", badge: PREMIUM_PAYMENTS_ENABLED ? undefined : "Free" },
+  { href: "/plus", label: "Rolichat+", icon: "♛", badge: PREMIUM_PAYMENTS_ENABLED ? undefined : "Free" },
   { href: "/wallet", label: "Wallet", icon: "◎" },
   { href: "/dashboard", label: "Studio", icon: "✦" },
   { href: "/me", label: "Me", icon: "◉" },
@@ -59,7 +59,7 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold/30 to-gold/10 flex items-center justify-center shadow-lg shadow-gold/10 group-hover:shadow-gold/20 group-hover:scale-105 transition-all duration-300">
             <Logo size={24} />
           </div>
-          <span className="font-display text-lg tracking-wide shimmer-text">Atelier</span>
+          <span className="font-display text-lg tracking-wide shimmer-text">Rolichat</span>
         </Link>
 
         <nav className="px-3 mt-3 flex-1 relative">
@@ -154,7 +154,7 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
             <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-white/5 bg-gradient-to-r from-surface-raised to-plum-deep/60">
           <Link href="/explore" className="font-display text-lg flex items-center gap-2">
             <Logo size={24} />
-            <span className="shimmer-text">Atelier</span>
+            <span className="shimmer-text">Rolichat</span>
           </Link>
           <button
             type="button"

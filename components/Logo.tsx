@@ -27,42 +27,27 @@ export default function Logo({ className = "", size = 32 }: { className?: string
       {/* Glow background */}
       <circle cx="24" cy="24" r="22" fill="url(#logo-glow)" />
 
-      {/* Outer ring - represents the "atelier" frame */}
+      {/* Outer ring - soft frame */}
       <circle cx="24" cy="24" r="20" stroke="url(#logo-gold)" strokeWidth="1.5" fill="none" opacity="0.4" />
 
-      {/* Main mark - stylized "A" formed by two brush strokes meeting at apex */}
-      {/* Left stroke */}
+      {/* Main mark - chat bubble body */}
       <path
-        d="M14 36 L24 12"
+        d="M24 10c-8.28 0-15 5.9-15 13.2 0 4.06 2.09 7.7 5.38 10.13-.18 1.9-.86 3.7-2.03 5.27a.6.6 0 00.62.94c2.9-.7 5.36-1.99 7.3-3.42 1.2.28 2.45.42 3.73.42 8.28 0 15-5.9 15-13.2S32.28 10 24 10z"
+        fill="url(#logo-gold)"
+        opacity="0.16"
         stroke="url(#logo-gold)"
-        strokeWidth="3"
-        strokeLinecap="round"
-        fill="none"
-      />
-      {/* Right stroke */}
-      <path
-        d="M34 36 L24 12"
-        stroke="url(#logo-rose)"
-        strokeWidth="3"
-        strokeLinecap="round"
-        fill="none"
-      />
-      {/* Crossbar */}
-      <path
-        d="M17 28 L31 28"
-        stroke="url(#logo-gold)"
-        strokeWidth="2"
-        strokeLinecap="round"
-        opacity="0.7"
+        strokeWidth="1.5"
       />
 
-      {/* Sparkle dot at apex */}
-      <circle cx="24" cy="12" r="2.5" fill="#f5d76e" />
-      <circle cx="24" cy="12" r="4" fill="#f5d76e" opacity="0.3" />
+      {/* Heart mark centered in the bubble - the "roli" companion spark */}
+      <path
+        d="M24 29.5c-.3 0-.59-.1-.83-.3-3.9-3.28-6.47-5.6-6.47-8.42 0-2.3 1.8-4.08 4.08-4.08 1.3 0 2.55.61 3.22 1.58.67-.97 1.92-1.58 3.22-1.58 2.28 0 4.08 1.78 4.08 4.08 0 2.82-2.57 5.14-6.47 8.42-.24.2-.53.3-.83.3z"
+        fill="url(#logo-rose)"
+      />
 
-      {/* Small accent dots */}
-      <circle cx="14" cy="36" r="1.5" fill="#c9a227" opacity="0.6" />
-      <circle cx="34" cy="36" r="1.5" fill="#b5657a" opacity="0.6" />
+      {/* Sparkle accent */}
+      <circle cx="35" cy="14" r="2.2" fill="#f5d76e" />
+      <circle cx="35" cy="14" r="3.6" fill="#f5d76e" opacity="0.3" />
     </svg>
   );
 }

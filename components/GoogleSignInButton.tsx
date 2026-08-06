@@ -8,7 +8,7 @@ import { GOOGLE_CLIENT_ID, loadGoogleScript } from "@/lib/googleAuth";
  * button (not a custom-styled one — Google's Identity Services requires
  * their button for the credential flow to fire reliably, and using their
  * exact button is part of Google's brand guidelines). We do theme it to fit
- * the site: filled_black + pill shape line up with Atelier's dark cards and
+ * the site: filled_black + pill shape line up with Rolichat's dark cards and
  * rounded-full gold buttons.
  *
  * `onCredential(idTokenJwt)` fires once the user picks a Google account —

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const STORAGE_KEY = "atelier:welcome:v1";
+const STORAGE_KEY = "rolichat:welcome:v1";
 
 type Props = {
   onDone?: () => void;
@@ -38,7 +38,7 @@ export default function WelcomeOnboarding({ onDone }: Props) {
       <div className="w-full max-w-md rounded-2xl bg-gradient-to-br from-surface-card to-surface-raised border border-white/10 p-6 shadow-2xl animate-scale-in">
         <div className="text-center mb-6">
           <span className="text-3xl block mb-2">✨</span>
-          <p className="font-display text-xl gradient-text">Welcome to Atelier!</p>
+          <p className="font-display text-xl gradient-text">Welcome to Rolichat!</p>
           <p className="text-sm text-parchment/55 mt-1">
             Tell us a little more for a better personalized experience.
           </p>

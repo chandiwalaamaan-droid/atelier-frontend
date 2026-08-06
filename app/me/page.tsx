@@ -166,7 +166,7 @@ export default function MePage() {
             <div className="text-center py-20 text-parchment/45">
               <span className="text-4xl block mb-3 opacity-50">🔒</span>
               <p className="font-display text-lg mb-2">Premium feature</p>
-              <p className="text-sm mb-6 text-parchment/40">Collections and gallery unlock with Atelier+ later.</p>
+              <p className="text-sm mb-6 text-parchment/40">Collections and gallery unlock with Rolichat+ later.</p>
               <Link href="/plus" className="text-gold hover:text-gold/80 transition-colors text-sm font-medium">
                 View membership →
               </Link>

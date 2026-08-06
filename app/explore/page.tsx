@@ -62,7 +62,7 @@ export default function ExplorePage() {
   const [reportError, setReportError] = useState("");
   const [nsfwEnabled, setNsfwEnabled] = useState(() => {
     if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("atelier_nsfw") === "1";
+    return window.localStorage.getItem("rolichat_nsfw") === "1";
   });
 
   function toggleNsfw() {
@@ -74,7 +74,7 @@ export default function ExplorePage() {
     }
     const next = !nsfwEnabled;
     setNsfwEnabled(next);
-    window.localStorage.setItem("atelier_nsfw", next ? "1" : "0");
+    window.localStorage.setItem("rolichat_nsfw", next ? "1" : "0");
   }
 
   useEffect(() => {
@@ -173,7 +173,7 @@ export default function ExplorePage() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 relative z-10">
                 <div>
                   <p className="text-xs text-gold/90 uppercase tracking-widest mb-1 flex items-center gap-1">
-                    <span className="text-gold">♛</span> Join Atelier+
+                    <span className="text-gold">♛</span> Join Rolichat+
                   </p>
                   <p className="text-xl md:text-2xl font-display text-parchment">
                     Unlimited access to premium roleplay engines

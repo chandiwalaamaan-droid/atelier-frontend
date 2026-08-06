@@ -109,7 +109,7 @@ export default function SignupPage() {
       <form onSubmit={onSubmit} className="relative w-full max-w-sm rounded-2xl bg-gradient-to-br from-plum/60 to-plum-deep/80 p-8 border border-white/5 shadow-2xl animate-scale-in glass-strong">
         <div className="text-center mb-6">
           <span className="mb-2 block flex justify-center"><Logo size={40} className="animate-bounce-slow" /></span>
-          <h1 className="font-display text-2xl shimmer-text">Open your atelier</h1>
+          <h1 className="font-display text-2xl shimmer-text">Open your rolichat</h1>
           <p className="text-sm text-parchment/50 mt-1">A few details and you're in.</p>
         </div>
 
@@ -169,7 +169,7 @@ export default function SignupPage() {
           className="w-full mb-2 rounded-xl bg-plum-deep/80 border border-white/10 px-4 py-2.5 focus-ring [color-scheme:dark]"
         />
         <p className="text-xs text-parchment/40 mb-4 ml-1">
-          Atelier includes user-created mature content and is for adults only. You must be 18 or older.
+          Rolichat includes user-created mature content and is for adults only. You must be 18 or older.
         </p>
 
         <label className="flex items-start gap-2 mb-6 text-xs text-parchment/60 cursor-pointer group">

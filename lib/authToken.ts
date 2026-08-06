@@ -15,7 +15,7 @@
  * cookie works, both are sent and the cookie is what the backend checks
  * first; wherever the cookie was dropped, this header carries the session.
  */
-const STORAGE_KEY = "atelier_session_token";
+const STORAGE_KEY = "rolichat_session_token";
 
 export function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;

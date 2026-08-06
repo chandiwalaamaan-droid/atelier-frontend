@@ -59,14 +59,14 @@ const REACTION_EMOJIS = ["❤️", "🔥", "😂", "😮", "😢"];
 
 function getChatTheme(): ChatTheme {
   if (typeof window === "undefined") return "midnight";
-  const stored = localStorage.getItem("atelier:chat:theme");
+  const stored = localStorage.getItem("rolichat:chat:theme");
   if (stored === "midnight" || stored === "aurora" || stored === "ember") return stored;
   return "midnight";
 }
 
 function saveChatTheme(theme: ChatTheme) {
   if (typeof window === "undefined") return;
-  localStorage.setItem("atelier:chat:theme", theme);
+  localStorage.setItem("rolichat:chat:theme", theme);
 }
 
 function buildChatBody(

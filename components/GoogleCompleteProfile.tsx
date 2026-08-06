@@ -6,7 +6,7 @@ import { apiFetch } from "@/lib/api";
 import { setAuthToken } from "@/lib/authToken";
 
 /**
- * Shown right after Google Sign-In reports isNewUser: true. Atelier requires
+ * Shown right after Google Sign-In reports isNewUser: true. Rolichat requires
  * a self-reported date of birth and ToS acceptance at signup (18+ content
  * gate) — Google doesn't give us either, so this collects them before
  * POSTing to /api/auth/google/complete to actually create the account.
@@ -74,7 +74,7 @@ export function GoogleCompleteProfile({
         className="w-full mb-2 rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring"
       />
       <p className="text-xs text-parchment/50 mb-4">
-        Atelier includes user-created mature content and is for adults only. You must be 18 or older.
+        Rolichat includes user-created mature content and is for adults only. You must be 18 or older.
       </p>
 
       <label className="flex items-start gap-2 mb-6 text-xs text-parchment/70 cursor-pointer">

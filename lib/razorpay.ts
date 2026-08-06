@@ -80,7 +80,7 @@ async function runCheckout(
       amount: order.amount,
       currency: order.currency,
       order_id: order.orderId,
-      name: "Atelier",
+      name: "Rolichat",
       prefill,
       theme: { color: "#c9a227" },
       modal: {

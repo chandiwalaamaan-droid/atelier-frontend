@@ -20,7 +20,7 @@ const DEFAULTS: RoleplayPreferences = {
 };
 
 function storageKey(characterId: string) {
-  return `atelier:roleplay:${characterId}`;
+  return `rolichat:roleplay:${characterId}`;
 }
 
 function defaultPrefs(characterIsExplicit: boolean): RoleplayPreferences {

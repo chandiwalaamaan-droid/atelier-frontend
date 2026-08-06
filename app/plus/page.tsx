@@ -41,7 +41,7 @@ export default function PlusPage() {
         <div className="flex-1 overflow-y-auto px-4 md:px-10 py-8">
           <header className="text-center max-w-2xl mx-auto mb-10">
             <span className="text-4xl block mb-3">♛</span>
-            <h1 className="font-display text-3xl md:text-4xl mb-2 gradient-text">Get unlimited access on Atelier</h1>
+            <h1 className="font-display text-3xl md:text-4xl mb-2 gradient-text">Get unlimited access on Rolichat</h1>
             <p className="text-sm text-parchment/50">
               Higher tiers unlock more premium engines and memory — billing is not active yet.
             </p>

@@ -16,7 +16,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Atelier — craft a companion",
+  title: "Rolichat — craft a companion",
   description: "Create custom AI characters and talk with them.",
 };
 

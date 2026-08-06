@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Privacy Policy — Atelier",
+  title: "Privacy Policy — Rolichat",
 };
 
 export default function PrivacyPage() {
@@ -10,7 +10,7 @@ export default function PrivacyPage() {
       <div className="max-w-2xl mx-auto">
         <p className="text-sm text-parchment/60 mb-2">
           <Link href="/" className="hover:text-gold">
-            ← Atelier
+            ← Rolichat
           </Link>
         </p>
         <h1 className="font-display text-3xl mb-2">Privacy Policy</h1>

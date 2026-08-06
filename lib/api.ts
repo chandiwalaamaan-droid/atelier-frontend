@@ -36,7 +36,7 @@ export function apiFetch(path: string, init: RequestInit = {}) {
 
 /**
  * Character avatarUrl / backgroundUrl values come back from the backend as
- * absolute B2 proxy URLs like "https://<backend-host>/api/images/atelier/avatars/xyz.png"
+ * absolute B2 proxy URLs like "https://<backend-host>/api/images/rolichat/avatars/xyz.png"
  * (the bucket stays private; the backend streams objects itself via GET /api/images/:key).
  * Resolve any relative path against API_URL so <img> tags load correctly regardless
  * of whether the value is absolute or relative.
