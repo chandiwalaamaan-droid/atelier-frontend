@@ -34,18 +34,25 @@ export function GoogleCompleteProfile({
       return;
     }
     setLoading(true);
-    const res = await apiFetch("/api/auth/google/complete", {
-      method: "POST",
-      body: JSON.stringify({ credential, displayName, birthdate, tosAccepted }),
-    });
-    const data = await res.json().catch(() => ({}));
-    setLoading(false);
-    if (!res.ok) {
-      setError(data.error || "Something went wrong.");
-      return;
+    try {
+      const res = await apiFetch("/api/auth/google/complete", {
+        method: "POST",
+        body: JSON.stringify({ credential, displayName, birthdate, tosAccepted }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "Something went wrong.");
+        return;
+      }
+      setAuthToken(data.token);
+      onDone();
+    } catch {
+      // fetch() itself threw — without this the button was stuck on
+      // "Creating account…" forever with no feedback.
+      setError("Couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setLoading(false);
     }
-    setAuthToken(data.token);
-    onDone();
   }
 
   return (

@@ -63,7 +63,10 @@ export default function Home() {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [generatingAvatar, setGeneratingAvatar] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [settingSaving, setSettingSaving] = useState<string | null>(null);
+  const [settingMsg, setSettingMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -323,6 +326,48 @@ export default function Home() {
     }
   }
 
+  async function handleGenerateAvatar() {
+    setGeneratingAvatar(true);
+    setSaveMsg(null);
+    try {
+      const res = await apiFetch("/api/auth/avatar/generate", { method: "POST", body: JSON.stringify({}) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Avatar generation failed.");
+      setAvatarPreview(data.user?.avatarUrl ?? null);
+      setProfile((p) => (p ? { ...p, avatarUrl: data.user?.avatarUrl ?? p.avatarUrl } : p));
+      setSaveMsg("Avatar generated.");
+    } catch (err: any) {
+      setSaveMsg(err.message || "Avatar generation failed.");
+    } finally {
+      setGeneratingAvatar(false);
+    }
+  }
+
+  // Saves a single General-section setting immediately (rather than only on
+  // the big "Save profile" click above) — that's the UX these toggles/pickers
+  // imply, and it's what makes them feel "wired up" rather than decorative.
+  // Optimistic update with rollback on failure.
+  async function updateSetting<K extends keyof UserProfile>(key: K, value: UserProfile[K]) {
+    const previous = profile?.[key];
+    setProfile((p) => (p ? { ...p, [key]: value } : p));
+    setSettingSaving(key);
+    setSettingMsg(null);
+    try {
+      const res = await apiFetch("/api/auth/me", {
+        method: "PUT",
+        body: JSON.stringify({ [key]: value }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to save setting.");
+      if (data.user) setProfile(data.user);
+    } catch (err: any) {
+      setProfile((p) => (p ? { ...p, [key]: previous } : p)); // roll back
+      setSettingMsg(err.message || "Couldn't save that setting. Try again.");
+    } finally {
+      setSettingSaving(null);
+    }
+  }
+
   async function handleLogout() {
     await apiFetch("/api/auth/logout", { method: "POST" });
     clearAuthCache();
@@ -347,25 +392,30 @@ export default function Home() {
         <div className="max-w-5xl mx-auto w-full px-4 py-8 space-y-8">
           {/* Me Section */}
           <section className="rounded-2xl bg-gradient-to-br from-surface-card to-surface-raised border border-white/5 p-6">
-            <h2 className="font-display text-xl gradient-text mb-6">Me</h2>
+            <h2 className="font-display text-xl gradient-text mb-6">Profile Settings</h2>
 
             <form onSubmit={handleSaveProfile} className="space-y-5">
               {/* Avatar */}
-              <div className="flex items-center gap-4">
-                <span className="relative w-16 h-16 rounded-full bg-gradient-to-br from-gold/30 to-plum/50 flex items-center justify-center text-2xl font-display shrink-0 shadow-lg ring-1 ring-white/5 overflow-hidden">
-                  {avatarPreview ? (
-                    <img src={resolveMediaUrl(avatarPreview)!} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    initial
-                  )}
-                </span>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingAvatar} className="text-xs border border-white/10 px-3 py-1.5 rounded-full hover:border-gold focus-ring disabled:opacity-50 transition-colors">
-                    {uploadingAvatar ? "Uploading…" : "📤 Upload"}
-                  </button>
-                  <button type="button" className="text-xs border border-white/10 px-3 py-1.5 rounded-full hover:border-gold focus-ring transition-colors">✨ Generate</button>
+              <div>
+                <div className="flex items-center gap-4">
+                  <span className="relative w-16 h-16 rounded-full bg-gradient-to-br from-gold/30 to-plum/50 flex items-center justify-center text-2xl font-display shrink-0 shadow-lg ring-1 ring-white/5 overflow-hidden">
+                    {avatarPreview ? (
+                      <img src={resolveMediaUrl(avatarPreview)!} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      initial
+                    )}
+                  </span>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={handleGenerateAvatar} disabled={generatingAvatar} className="text-xs border border-white/10 px-3 py-1.5 rounded-full hover:border-gold focus-ring disabled:opacity-50 transition-colors">
+                      {generatingAvatar ? "Generating…" : "✨ Generate"}
+                    </button>
+                    <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingAvatar} className="text-xs border border-white/10 px-3 py-1.5 rounded-full hover:border-gold focus-ring disabled:opacity-50 transition-colors">
+                      {uploadingAvatar ? "Uploading…" : "📤 Upload"}
+                    </button>
+                  </div>
+                  <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={handleAvatarUpload} />
                 </div>
-                <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={handleAvatarUpload} />
+                <p className="text-[10px] text-parchment/40 mt-2">Choose an avatar for your persona.</p>
               </div>
 
               {/* Username */}
@@ -379,7 +429,10 @@ export default function Home() {
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring text-sm"
                 />
-                <p className="text-[10px] text-parchment/40 mt-1 text-right">{username.length}/20</p>
+                <div className="flex items-start justify-between mt-1">
+                  <p className="text-[10px] text-parchment/40">Your unique public name visible to community.</p>
+                  <p className="text-[10px] text-parchment/40 shrink-0 ml-2">{username.length}/20</p>
+                </div>
               </div>
 
               {/* Name */}
@@ -393,8 +446,10 @@ export default function Home() {
                   onChange={(e) => setName(e.target.value)}
                   className="w-full rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring text-sm"
                 />
-                <p className="text-[10px] text-parchment/40 mt-1 text-right">{name.length}/20</p>
-                <p className="text-[10px] text-parchment/40">The name you&apos;ll use for chatting</p>
+                <div className="flex items-start justify-between mt-1">
+                  <p className="text-[10px] text-parchment/40">The name you&apos;ll use for chatting</p>
+                  <p className="text-[10px] text-parchment/40 shrink-0 ml-2">{name.length}/20</p>
+                </div>
               </div>
 
               {/* Current Plan */}
@@ -418,9 +473,12 @@ export default function Home() {
                   maxLength={1000}
                   rows={4}
                   className="w-full rounded-lg bg-plum-deep border border-parchment/20 px-3 py-2 focus-ring text-sm resize-none"
-                  placeholder="Adds background context to guide the AI."
+                  placeholder="A petite and slim 22 years old girl, with lavender-long hair, silver-gray eyes…"
                 />
-                <p className="text-[10px] text-parchment/40 mt-1 text-right">{highlights.length}/1000</p>
+                <div className="flex items-start justify-between mt-1">
+                  <p className="text-[10px] text-parchment/40">Adds background context to guide the AI.</p>
+                  <p className="text-[10px] text-parchment/40 shrink-0 ml-2">{highlights.length}/1000</p>
+                </div>
               </div>
 
               {/* Save */}
@@ -441,7 +499,12 @@ export default function Home() {
                     <p className="text-sm text-parchment/80 flex items-center gap-2">Display explicit content</p>
                     <p className="text-xs text-parchment/40">Confirm that you are over 18 years of age</p>
                   </div>
-                  <button type="button" onClick={() => setProfile((p) => ({ ...p!, explicitMode: !p!.explicitMode }))} className={`w-10 h-6 rounded-full transition-colors relative ${profile?.explicitMode ? "bg-gold" : "bg-white/10"}`}>
+                  <button
+                    type="button"
+                    disabled={settingSaving === "explicitMode"}
+                    onClick={() => updateSetting("explicitMode", !profile?.explicitMode)}
+                    className={`w-10 h-6 rounded-full transition-colors relative disabled:opacity-60 ${profile?.explicitMode ? "bg-gold" : "bg-white/10"}`}
+                  >
                     <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${profile?.explicitMode ? "translate-x-4" : ""}`} />
                   </button>
                 </div>
@@ -451,7 +514,12 @@ export default function Home() {
                     <p className="text-sm text-parchment/80 flex items-center gap-2">Blur explicit images</p>
                     <p className="text-xs text-parchment/40">Blurs mature and adult media</p>
                   </div>
-                  <button type="button" onClick={() => setProfile((p) => ({ ...p!, blurExplicitImages: !p!.blurExplicitImages }))} className={`w-10 h-6 rounded-full transition-colors relative ${profile?.blurExplicitImages ? "bg-gold" : "bg-white/10"}`}>
+                  <button
+                    type="button"
+                    disabled={settingSaving === "blurExplicitImages"}
+                    onClick={() => updateSetting("blurExplicitImages", !profile?.blurExplicitImages)}
+                    className={`w-10 h-6 rounded-full transition-colors relative disabled:opacity-60 ${profile?.blurExplicitImages ? "bg-gold" : "bg-white/10"}`}
+                  >
                     <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${profile?.blurExplicitImages ? "translate-x-4" : ""}`} />
                   </button>
                 </div>
@@ -461,9 +529,19 @@ export default function Home() {
                     <p className="text-sm text-parchment/80 flex items-center gap-2">Default Model</p>
                     <p className="text-xs text-parchment/40">Switch to a different AI model</p>
                   </div>
-                  <button type="button" onClick={() => setProfile((p) => ({ ...p!, defaultModel: p?.defaultModel === "default" ? "custom" : "default" }))} className="text-xs text-parchment/60 border border-white/10 px-3 py-1.5 rounded-full hover:border-gold focus-ring transition-colors">
-                    {profile?.defaultModel || "Default"} ▸
-                  </button>
+                  <div className="relative">
+                    <select
+                      value={profile?.defaultModel || "default"}
+                      disabled={settingSaving === "defaultModel"}
+                      onChange={(e) => updateSetting("defaultModel", e.target.value)}
+                      className="text-xs text-parchment/70 bg-plum-deep border border-white/10 pl-3 pr-6 py-1.5 rounded-full hover:border-gold focus-ring transition-colors disabled:opacity-60 appearance-none cursor-pointer"
+                    >
+                      <option value="default">Default</option>
+                      <option value="creative">Creative</option>
+                      <option value="precise">Precise</option>
+                    </select>
+                    <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-parchment/40">▸</span>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -471,10 +549,24 @@ export default function Home() {
                     <p className="text-sm text-parchment/80 flex items-center gap-2">Preferred Chat Language</p>
                     <p className="text-xs text-parchment/40">Change the language used in Chat</p>
                   </div>
-                  <button type="button" onClick={() => setProfile((p) => ({ ...p!, preferredLanguage: p?.preferredLanguage === "English" ? "Spanish" : "English" }))} className="text-xs text-parchment/60 border border-white/10 px-3 py-1.5 rounded-full hover:border-gold focus-ring transition-colors">
-                    {profile?.preferredLanguage || "English"} ▸
-                  </button>
+                  <div className="relative">
+                    <select
+                      value={profile?.preferredLanguage || "English"}
+                      disabled={settingSaving === "preferredLanguage"}
+                      onChange={(e) => updateSetting("preferredLanguage", e.target.value)}
+                      className="text-xs text-parchment/70 bg-plum-deep border border-white/10 pl-3 pr-6 py-1.5 rounded-full hover:border-gold focus-ring transition-colors disabled:opacity-60 appearance-none cursor-pointer"
+                    >
+                      <option>English</option>
+                      <option>Spanish</option>
+                      <option>French</option>
+                      <option>German</option>
+                      <option>Portuguese</option>
+                      <option>Japanese</option>
+                    </select>
+                    <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-parchment/40">▸</span>
+                  </div>
                 </div>
+                {settingMsg && <p className="text-xs text-rose">{settingMsg}</p>}
               </div>
             </div>
 

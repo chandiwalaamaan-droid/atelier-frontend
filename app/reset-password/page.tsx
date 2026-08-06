@@ -31,18 +31,23 @@ function ResetPasswordForm() {
       return;
     }
     setLoading(true);
-    const res = await apiFetch("/api/auth/reset-password", {
-      method: "POST",
-      body: JSON.stringify({ token, password }),
-    });
-    setLoading(false);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setError(data.error || "Something went wrong.");
-      return;
+    try {
+      const res = await apiFetch("/api/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ token, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "Something went wrong.");
+        return;
+      }
+      setDone(true);
+      setTimeout(() => router.push("/login"), 1800);
+    } catch {
+      setError("Couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setLoading(false);
     }
-    setDone(true);
-    setTimeout(() => router.push("/login"), 1800);
   }
 
   if (!token) {

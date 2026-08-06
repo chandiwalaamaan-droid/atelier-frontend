@@ -37,39 +37,51 @@ export default function SignupPage() {
       return;
     }
     setLoading(true);
-    const res = await apiFetch("/api/auth/register", {
-      method: "POST",
-      body: JSON.stringify({ displayName, email, password, birthdate, tosAccepted }),
-    });
-    const data = await res.json().catch(() => ({}));
-    setLoading(false);
-    if (!res.ok) {
-      setError(data.error || "Something went wrong.");
-      return;
+    try {
+      const res = await apiFetch("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify({ displayName, email, password, birthdate, tosAccepted }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "Something went wrong.");
+        return;
+      }
+      setAuthToken(data.token);
+      goToExplore();
+    } catch {
+      // fetch() itself threw (network/CORS) — without this the button was
+      // stuck on "Creating account…" forever with no feedback.
+      setError("Couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setLoading(false);
     }
-    setAuthToken(data.token);
-    goToExplore();
   }
 
   async function onGoogleCredential(credential: string) {
     setError("");
     setLoading(true);
-    const res = await apiFetch("/api/auth/google", {
-      method: "POST",
-      body: JSON.stringify({ credential }),
-    });
-    const data = await res.json().catch(() => ({}));
-    setLoading(false);
-    if (!res.ok) {
-      setError(data.error || "Google sign-in failed.");
-      return;
+    try {
+      const res = await apiFetch("/api/auth/google", {
+        method: "POST",
+        body: JSON.stringify({ credential }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "Google sign-in failed.");
+        return;
+      }
+      if (data.isNewUser) {
+        setGooglePending({ credential, suggestedDisplayName: data.suggestedDisplayName || "" });
+        return;
+      }
+      setAuthToken(data.token);
+      goToExplore();
+    } catch {
+      setError("Couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setLoading(false);
     }
-    if (data.isNewUser) {
-      setGooglePending({ credential, suggestedDisplayName: data.suggestedDisplayName || "" });
-      return;
-    }
-    setAuthToken(data.token);
-    goToExplore();
   }
 
   if (googlePending) {

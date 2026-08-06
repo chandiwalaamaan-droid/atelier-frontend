@@ -40,39 +40,56 @@ function LoginForm() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const res = await apiFetch("/api/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json().catch(() => ({}));
-    setLoading(false);
-    if (!res.ok) {
-      setError(data.error || "Something went wrong.");
-      return;
+    try {
+      const res = await apiFetch("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "Something went wrong.");
+        return;
+      }
+      setAuthToken(data.token);
+      goToNext();
+    } catch {
+      // fetch() itself threw — network down, backend unreachable, or CORS
+      // rejected the request outright. Without this catch the button was
+      // stuck on "Logging in…" forever with no feedback (loading never got
+      // reset), which looks exactly like nothing happened.
+      setError("Couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setLoading(false);
     }
-    setAuthToken(data.token);
-    goToNext();
   }
 
   async function onGoogleCredential(credential: string) {
     setError("");
     setLoading(true);
-    const res = await apiFetch("/api/auth/google", {
-      method: "POST",
-      body: JSON.stringify({ credential }),
-    });
-    const data = await res.json().catch(() => ({}));
-    setLoading(false);
-    if (!res.ok) {
-      setError(data.error || "Google sign-in failed.");
-      return;
+    try {
+      const res = await apiFetch("/api/auth/google", {
+        method: "POST",
+        body: JSON.stringify({ credential }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "Google sign-in failed.");
+        return;
+      }
+      if (data.isNewUser) {
+        setGooglePending({ credential, suggestedDisplayName: data.suggestedDisplayName || "" });
+        return;
+      }
+      setAuthToken(data.token);
+      goToNext();
+    } catch {
+      // Same as onSubmit above: if this throws, the Google popup just
+      // closes and the login page is still sitting there un-authenticated,
+      // which looks like "I picked my account and got bounced back".
+      setError("Couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setLoading(false);
     }
-    if (data.isNewUser) {
-      setGooglePending({ credential, suggestedDisplayName: data.suggestedDisplayName || "" });
-      return;
-    }
-    setAuthToken(data.token);
-    goToNext();
   }
 
   if (googlePending) {
