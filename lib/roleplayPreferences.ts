@@ -88,19 +88,6 @@ export const ROLEPLAY_STYLE_LABELS: Record<RoleplayStyle, string> = {
   intense: "Passionate",
 };
 
-export const NORMAL_STARTERS = [
-  "Tell me about yourself.",
-  "What's on your mind today?",
-  "Let's start a little adventure.",
-];
-
-export const SPICY_STARTERS = [
-  "I've been thinking about you all day…",
-  "Come closer — tell me what you want.",
-  "Let's pick up where we left off.",
-  "Surprise me.",
-];
-
 export const SCENE_STEERS: { label: string; directive: string }[] = [
   { label: "Turn up the heat", directive: "Escalate tension and intimacy in this scene; stay in character." },
   { label: "Slow down", directive: "Pull back to teasing, emotional intimacy, and anticipation rather than rushing." },

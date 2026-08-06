@@ -451,8 +451,7 @@ export default function EditCharacterPage() {
               checked={isExplicit}
               onChange={(e) => {
                 setIsExplicit(e.target.checked);
-                if (e.target.checked) setIsPublic(false);
-                else setRoleplayNotes("");
+                if (!e.target.checked) setRoleplayNotes("");
               }}
               className="w-4 h-4 rounded cursor-pointer accent-rose"
             />
@@ -466,20 +465,16 @@ export default function EditCharacterPage() {
               type="checkbox"
               id="isPublic"
               checked={isPublic}
-              disabled={isExplicit}
               onChange={(e) => setIsPublic(e.target.checked)}
-              className="w-4 h-4 rounded cursor-pointer accent-gold disabled:opacity-40"
+              className="w-4 h-4 rounded cursor-pointer accent-gold"
             />
-            <label
-              htmlFor="isPublic"
-              className={`text-sm cursor-pointer ${isExplicit ? "text-parchment/30" : "text-parchment/70"}`}
-            >
+            <label htmlFor="isPublic" className="text-sm text-parchment/70 cursor-pointer">
               Share to the Discover gallery so others can remix this character
             </label>
           </div>
-          {isExplicit && (
+          {isExplicit && isPublic && (
             <p className="text-xs text-parchment/40 -mt-4 mb-4">
-              Explicit characters can't be shared publicly.
+              Only visible to people who've turned on 18+ content in Discover.
             </p>
           )}
 

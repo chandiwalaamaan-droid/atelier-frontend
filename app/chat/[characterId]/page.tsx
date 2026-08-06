@@ -1,7 +1,7 @@
 "use client";
 
 /// <reference types="react" />
-import { useEffect, useRef, useState, useCallback, type ReactNode, type FormEvent, type KeyboardEvent, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback, type ReactNode, type FormEvent, type KeyboardEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "@/lib/api";
@@ -14,8 +14,6 @@ import AvatarGenerateModal from "@/components/AvatarGenerateModal";
 import {
   loadRoleplayPreferences,
   saveRoleplayPreferences,
-  NORMAL_STARTERS,
-  SPICY_STARTERS,
   type RoleplayPreferences,
 } from "@/lib/roleplayPreferences";
 import {
@@ -50,8 +48,6 @@ type Message = {
 type Reaction = { emoji: string; count: number; reacted: boolean };
 
 type ChatTheme = "midnight" | "aurora" | "ember";
-
-const STARTER_PROMPTS = NORMAL_STARTERS;
 
 const CHAT_THEMES: { id: ChatTheme; label: string; emoji: string }[] = [
   { id: "midnight", label: "Midnight", emoji: "🌙" },
@@ -166,17 +162,6 @@ function extractEvents(buffer: string): { segments: StreamSegment[]; rest: strin
     rest = rest.slice(end + 1);
   }
   return { segments, rest };
-}
-
-function getSmartReplies(messages: Message[], characterName: string): string[] {
-  const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-  if (!lastAssistant) return [`Tell me about yourself, ${characterName}.`, "What brings you here?", "Let's start an adventure."];
-  
-  const msgCount = messages.length;
-  if (msgCount <= 2) return ["Tell me more about yourself.", "What's your favorite thing to do?", "That's interesting, go on."];
-  if (msgCount <= 5) return ["I'd love to hear more.", "What happened next?", "You're fascinating."];
-  if (msgCount <= 10) return ["I'm really enjoying this.", "Tell me something unexpected.", "I could listen to you all day."];
-  return ["I feel like I'm getting to know you.", "This is special.", "I don't want this to end."];
 }
 
 export default function ChatPage() {
@@ -785,8 +770,6 @@ export default function ChatPage() {
     }
   }
 
-  const smartReplies = useMemo(() => getSmartReplies(messages, character?.name || "Character"), [messages, character?.name]);
-
   if (notFound) {
     return (
       <RequireAuth>
@@ -948,24 +931,9 @@ export default function ChatPage() {
             style={character?.backgroundUrl ? { backgroundImage: `url(${resolveMediaUrl(character.backgroundUrl)})` } : undefined}
           >
             {character && messages.length === 0 && (
-              <>
-                <div className="max-w-[85%] sm:max-w-lg chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 message-slide-in">
-                  {character.greeting}
-                </div>
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {(roleplayPrefs.explicitMode ? SPICY_STARTERS : STARTER_PROMPTS).map((prompt: string) => (
-                    <button
-                      key={prompt}
-                      onClick={() => sendMessage(prompt)}
-                      disabled={sending}
-                      className="starter-prompt-card"
-                    >
-                      <span className="text-sm">✨</span>
-                      {prompt}
-                    </button>
-                  ))}
-                </div>
-              </>
+              <div className="max-w-[85%] sm:max-w-lg chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 message-slide-in">
+                {character.greeting}
+              </div>
             )}
             {messages.map((m: Message, i: number) => {
               const isLastAssistant = m.role === "assistant" && i === messages.length - 1;
@@ -1157,22 +1125,6 @@ export default function ChatPage() {
                 </div>
               );
             })}
-
-            {/* Smart Reply Suggestions */}
-            {!sending && messages.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-2 message-slide-in">
-                {smartReplies.slice(0, 3).map((reply, i) => (
-                  <button
-                    key={i}
-                    onClick={() => sendMessage(reply)}
-                    className="reply-chip"
-                  >
-                    <span className="text-sm">💬</span>
-                    {reply}
-                  </button>
-                ))}
-              </div>
-            )}
 
             <div ref={bottomRef} />
           </div>

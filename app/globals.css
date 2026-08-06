@@ -551,32 +551,6 @@ body.chat-theme-ember {
   animation: reaction-pop 0.3s ease;
 }
 
-/* ===== Smart Reply Chips ===== */
-
-.reply-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 13px;
-  background: rgba(246, 239, 227, 0.05);
-  border: 1px solid rgba(246, 239, 227, 0.1);
-  color: rgba(246, 239, 227, 0.7);
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  white-space: nowrap;
-  max-width: 100%;
-}
-
-.reply-chip:hover {
-  background: rgba(201, 162, 39, 0.1);
-  border-color: rgba(201, 162, 39, 0.3);
-  color: #c9a227;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(201, 162, 39, 0.15);
-}
-
 /* ===== Typing Indicator Enhanced ===== */
 
 .typing-indicator-enhanced {
@@ -754,31 +728,6 @@ body.chat-theme-ember {
   background: rgba(246, 239, 227, 0.08);
   border-color: rgba(246, 239, 227, 0.15);
   color: rgba(246, 239, 227, 0.9);
-}
-
-/* ===== Starter Prompt Cards ===== */
-
-.starter-prompt-card {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-radius: 999px;
-  font-size: 13px;
-  background: rgba(246, 239, 227, 0.04);
-  border: 1px solid rgba(246, 239, 227, 0.08);
-  color: rgba(246, 239, 227, 0.6);
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  white-space: nowrap;
-}
-
-.starter-prompt-card:hover {
-  background: rgba(201, 162, 39, 0.08);
-  border-color: rgba(201, 162, 39, 0.25);
-  color: #c9a227;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(201, 162, 39, 0.12);
 }
 
 /* ===== Scroll to Bottom Button ===== */
