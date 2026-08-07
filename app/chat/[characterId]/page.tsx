@@ -991,7 +991,7 @@ export default function ChatPage() {
                   {/* Avatar */}
                   {m.role === "assistant" ? (
                     <div
-                      className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-full overflow-hidden cursor-pointer ring-1 ring-white/10"
+                      className="relative w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-full overflow-hidden cursor-pointer ring-1 ring-white/10"
                       style={{ backgroundColor: `${character.accentColor}30` }}
                       onClick={() => setExpandedAvatar(character.avatarUrl ?? null)}
                     >
