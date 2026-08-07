@@ -148,7 +148,7 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
         </div>
       </aside>
 
-      <div className={`flex-1 flex flex-col min-w-0 ${variant === "chat" ? "h-screen" : "min-h-screen"}`}>
+      <div className={`flex-1 flex flex-col min-w-0 ${variant === "chat" ? "h-screen h-[100dvh]" : "min-h-screen"}`}>
         {variant !== "chat" && (
           <>
             {/* Mobile top bar */}
