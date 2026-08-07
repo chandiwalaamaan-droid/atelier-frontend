@@ -456,6 +456,20 @@ export default function MePage() {
           )}
 
           <Link
+            href="/me/chats"
+            className="flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-surface-card to-surface-raised border border-white/5 hover:border-gold/20 focus-ring transition-all card-hover"
+          >
+            <span className="flex items-center gap-3">
+              <span className="text-xl">💬</span>
+              <span>
+                <span className="block font-medium">Chat history</span>
+                <span className="block text-xs text-parchment/45">Select and delete previous chats, one at a time or all at once</span>
+              </span>
+            </span>
+            <span className="text-parchment/40">&rsaquo;</span>
+          </Link>
+
+          <Link
             href="/me/creations"
             className="flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-surface-card to-surface-raised border border-white/5 hover:border-gold/20 focus-ring transition-all card-hover"
           >
