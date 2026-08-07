@@ -354,28 +354,63 @@ export default function ChatPage() {
     const decoder = new TextDecoder();
     let acc = "";
     let carry = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      carry += decoder.decode(value, { stream: true });
-      const { segments, rest } = extractEvents(carry);
-      carry = rest;
-      for (const seg of segments) {
-        if (seg.type === "text") {
-          acc += seg.value;
-          continue;
+
+    // Streaming replies can arrive as dozens-to-hundreds of small chunks
+    // (especially on the longer, more elaborate 18+ engines). Calling
+    // setMessages on every single chunk forces a full re-render of the
+    // entire message list on every chunk, which saturates the main thread
+    // and freezes the tab on mobile / blocks clicks on desktop. Instead,
+    // accumulate text locally and flush to React state at most once per
+    // animation frame.
+    let rafId: number | null = null;
+    let pendingFlush = false;
+
+    const flush = () => {
+      rafId = null;
+      pendingFlush = false;
+      setMessages((prev: Message[]) =>
+        prev.map((m) => (m.id === assistantId ? { ...m, content: acc } : m))
+      );
+    };
+
+    const scheduleFlush = () => {
+      if (pendingFlush) return;
+      pendingFlush = true;
+      rafId = requestAnimationFrame(flush);
+    };
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        carry += decoder.decode(value, { stream: true });
+        const { segments, rest } = extractEvents(carry);
+        carry = rest;
+        for (const seg of segments) {
+          if (seg.type === "text") {
+            acc += seg.value;
+            continue;
+          }
+          const ev = seg.value;
+          if (ev.type === "failover") {
+            acc = "";
+            showToast("Reconnecting to keep the reply on track…");
+          } else if (ev.type === "fatal") {
+            const message = typeof ev.message === "string" ? ev.message : "Something went wrong.";
+            setError(message);
+            onFatal(message);
+          } else if (ev.type === "relationship" && typeof ev.level === "number") {
+            setRelationshipLevel(ev.level);
+          }
         }
-        const ev = seg.value;
-        if (ev.type === "failover") {
-          acc = "";
-          showToast("Reconnecting to keep the reply on track…");
-        } else if (ev.type === "fatal") {
-          const message = typeof ev.message === "string" ? ev.message : "Something went wrong.";
-          setError(message);
-          onFatal(message);
-        } else if (ev.type === "relationship" && typeof ev.level === "number") {
-          setRelationshipLevel(ev.level);
-        }
+        scheduleFlush();
+      }
+    } finally {
+      // Guarantee a final, synchronous flush so the last chunk(s) that
+      // arrived between the last rAF tick and stream end are never dropped.
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
       }
       setMessages((prev: Message[]) =>
         prev.map((m) => (m.id === assistantId ? { ...m, content: acc } : m))
