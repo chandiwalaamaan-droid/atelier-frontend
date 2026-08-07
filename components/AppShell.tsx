@@ -27,6 +27,7 @@ const NAV: { href: string; label: string; icon: string; badge?: string }[] = [
   { href: "/wallet", label: "Wallet", icon: "◎" },
   { href: "/dashboard", label: "Studio", icon: "✦" },
   { href: "/me", label: "Me", icon: "◉" },
+  { href: "/me/creations", label: "My Creations", icon: "🎭" },
 ];
 
 export default function AppShell({ children, variant = "default" }: AppShellProps) {
