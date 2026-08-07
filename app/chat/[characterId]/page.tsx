@@ -754,7 +754,15 @@ export default function ChatPage() {
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
+    // Mobile virtual keyboards fire an "Enter" keydown for their own
+    // return/newline key (and mid-autocomplete keystrokes can trigger it
+    // too), so treating Enter as "send" there causes half-typed messages to
+    // fire unexpectedly and the keyboard to flicker open/closed. Only wire
+    // Enter-to-send on devices with a real keyboard; touch devices send via
+    // the on-screen Send button instead, and Enter just makes a new line.
+    const isTouchDevice =
+      typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+    if (e.key === "Enter" && !e.shiftKey && !isTouchDevice) {
       e.preventDefault();
       onSend(e as unknown as FormEvent<HTMLFormElement>);
       return;

@@ -27,6 +27,7 @@ const NAV: { href: string; label: string; icon: string; badge?: string }[] = [
   { href: "/wallet", label: "Wallet", icon: "◎" },
   { href: "/dashboard", label: "Studio", icon: "✦" },
   { href: "/me", label: "Me", icon: "◉" },
+  { href: "/me/creations", label: "My Creations", icon: "🎭" },
 ];
 
 export default function AppShell({ children, variant = "default" }: AppShellProps) {
@@ -147,7 +148,7 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
         </div>
       </aside>
 
-      <div className={`flex-1 flex flex-col min-w-0 ${variant === "chat" ? "h-screen" : "min-h-screen"}`}>
+      <div className={`flex-1 flex flex-col min-w-0 ${variant === "chat" ? "h-dvh" : "min-h-screen"}`}>
         {variant !== "chat" && (
           <>
             {/* Mobile top bar */}
