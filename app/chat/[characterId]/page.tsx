@@ -295,7 +295,12 @@ export default function ChatPage() {
   const displayEngineId = roleplayPrefs.engineId ?? resolveEngineId(roleplayPrefs);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
-    bottomRef.current?.scrollIntoView({ behavior });
+    // block: "nearest" only scrolls as far as needed to reveal the bottom
+    // marker. The default ("start") tries to align it with the top of the
+    // viewport instead, which over-scrolls on every streamed chunk during
+    // a reply and was dragging the whole page (composer included) upward
+    // while the reply generated.
+    bottomRef.current?.scrollIntoView({ behavior, block: "nearest" });
   }, []);
 
   useEffect(() => {
