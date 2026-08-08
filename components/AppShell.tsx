@@ -52,7 +52,7 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
   }, [pathname]);
 
   return (
-    <div className="min-h-screen flex bg-void text-parchment">
+    <div className="min-h-dvh flex bg-void text-parchment">
       <aside className="hidden md:flex w-[260px] shrink-0 flex-col border-r border-white/5 bg-gradient-to-b from-surface-raised via-surface-raised to-plum-deep/40 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-gold/5 to-transparent opacity-30 pointer-events-none" />
         
