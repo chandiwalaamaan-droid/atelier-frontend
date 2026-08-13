@@ -23,6 +23,7 @@ function slugifyAvatar(name: string): string {
 }
 
 const TAG_RULES: { tag: string; re: RegExp }[] = [
+  { tag: "Anime", re: /anime|manga|otaku|seinen|shonen|isekai/i },
   { tag: "Romance", re: /romance|love|girlfriend|boyfriend|wife|husband|dating/i },
   { tag: "Drama", re: /drama|conflict|secret|betray/i },
   { tag: "Slice of life", re: /family|everyday|roommate|neighbor|slice/i },
@@ -33,8 +34,22 @@ const TAG_RULES: { tag: string; re: RegExp }[] = [
 
 export function inferTags(c: ExploreCardCharacter): string[] {
   const text = `${c.tagline} ${c.personality} ${c.name}`;
-  const tags = TAG_RULES.filter(({ re }) => re.test(text)).map(({ tag }) => tag);
-  return tags.length ? tags.slice(0, 3) : ["Roleplay"];
+  const inferred = TAG_RULES.filter(({ re }) => re.test(text)).map(({ tag }) => tag);
+
+  let explicit: string[] = [];
+  if (c.tags) {
+    try {
+      const parsed = JSON.parse(c.tags);
+      if (Array.isArray(parsed)) {
+        explicit = parsed.filter((t: any) => typeof t === "string").map((t: string) => t.trim()).filter(Boolean);
+      }
+    } catch {
+      // ignore malformed tags
+    }
+  }
+
+  const combined = [...new Set([...explicit, ...inferred])];
+  return combined.length ? combined.slice(0, 3) : ["Roleplay"];
 }
 
 export function pseudoViews(id: string): string {

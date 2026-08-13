@@ -26,6 +26,7 @@ const TABS = [
   { id: "all", label: "Explore" },
   { id: "trending", label: "Trending" },
   { id: "premium", label: "Premium" },
+  { id: "anime", label: "Anime" },
   { id: "romance", label: "Romance" },
   { id: "drama", label: "Drama" },
   { id: "slice", label: "Slice of life" },
@@ -40,6 +41,7 @@ function matchesTab(c: ExploreCardCharacter, tab: TabId): boolean {
   const tags = inferTags(c).map((t) => t.toLowerCase());
   if (tab === "trending") return true;
   if (tab === "premium") return tags.includes("romance") || tags.includes("drama");
+  if (tab === "anime") return tags.includes("anime");
   if (tab === "romance") return tags.includes("romance");
   if (tab === "drama") return tags.includes("drama");
   if (tab === "slice") return tags.includes("slice of life");
