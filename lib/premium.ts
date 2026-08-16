@@ -30,7 +30,7 @@ export const MEMBERSHIP_TIERS: MembershipTier[] = [
     monthlyPrice: 0,
     accent: "neutral",
     features: [
-      "2 free chat engines",
+      "Vanilla chat engine",
       "Unlimited private characters",
       "Community explore gallery",
       "Voice playback (when configured)",
@@ -44,7 +44,7 @@ export const MEMBERSHIP_TIERS: MembershipTier[] = [
     accent: "silver",
     features: [
       "No ads (when we add them)",
-      "6 premium roleplay engines",
+      "Strawberry roleplay engine",
       "Extended memory span",
       "Priority provider routing",
       "500 Sparks / month",
@@ -60,7 +60,7 @@ export const MEMBERSHIP_TIERS: MembershipTier[] = [
     features: [
       "Everything in Plus",
       "2,000 Sparks / month",
-      "All premium engines included",
+      "Chocolate roleplay engine",
       "Longer context window",
       "Early access features",
     ],
@@ -68,12 +68,12 @@ export const MEMBERSHIP_TIERS: MembershipTier[] = [
   {
     id: "supreme",
     name: "Supreme",
-    tagline: "Maximum control and flagship engines.",
+    tagline: "Maximum control and the flagship engine.",
     monthlyPrice: 49.99,
     accent: "rainbow",
     features: [
       "Everything in Ultra",
-      "8 flagship engines",
+      "Hazelnut flagship engine",
       "Save on Spark top-ups",
       "Highest memory limits",
       "Creator spotlight slot",

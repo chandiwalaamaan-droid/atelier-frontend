@@ -1,137 +1,70 @@
 import type { RoleplayPreferences, RoleplayStyle, SpiceLevel } from "./roleplayPreferences";
+import type { MembershipTierId } from "./premium";
 
-export type RoleplayEngineId =
-  | "vanilla"
-  | "vanilla_short"
-  | "green_apple"
-  | "cayenne"
-  | "saffron"
-  | "cardamom"
-  | "rosemary"
-  | "cookie"
-  | "grape"
-  | "custom";
+/**
+ * Mirrors the backend's ROLEPLAY_ENGINES (src/lib/providers/engines.ts) —
+ * four engines, one per membership tier, down from the previous nine.
+ * Keep id / minTier / spiceLevel / roleplayStyle in lockstep with the
+ * backend; everything else here (name, emoji, description, badge) is
+ * frontend-only display dressing.
+ */
+export type RoleplayEngineId = "vanilla" | "strawberry" | "chocolate" | "hazelnut" | "custom";
 
 export type RoleplayEngine = {
   id: Exclude<RoleplayEngineId, "custom">;
   name: string;
   emoji: string;
-  /** Intensity / depth hint (1–10), not a paywall — all engines are free on Rolichat. */
+  /** Intensity / depth hint (1–10), matches the backend's intelligence score. */
   badge: number;
   tag?: string;
   description: string;
-  section: "free" | "premium";
+  /** Lowest membership tier that can select this engine — matches the backend's minTier. */
+  minTier: MembershipTierId;
   spiceLevel: SpiceLevel;
   roleplayStyle: RoleplayStyle;
 };
 
 export const ROLEPLAY_ENGINES: RoleplayEngine[] = [
-  // ============================================
-  // FREE TIER - Entry level, good quality basics
-  // ============================================
-  {
-    id: "vanilla_short",
-    name: "Vanilla Short",
-    emoji: "⚡",
-    badge: 2,
-    description: "Quick, punchy responses — perfect for casual chats and light roleplay.",
-    section: "free",
-    spiceLevel: "flirty",
-    roleplayStyle: "dialogue",
-  },
   {
     id: "vanilla",
     name: "Vanilla",
     emoji: "🙂",
     badge: 3,
-    description: "Solid, reliable character immersion — the everyday go-to for balanced roleplay.",
-    section: "free",
+    description: "Warm, low-friction, snappy replies — the everyday go-to for casual roleplay.",
+    minTier: "free",
     spiceLevel: "flirty",
-    roleplayStyle: "balanced",
-  },
-
-  // ============================================
-  // PREMIUM TIER - Professional grade experiences
-  // ============================================
-
-  // Budget Premium ($4-5) - Better than free, good value
-  {
-    id: "green_apple",
-    name: "Green Apple",
-    emoji: "🍏",
-    badge: 4,
-    tag: "Premium Entry",
-    description: "Crisp, energetic banter — noticeably sharper than free engines. Great for lightweight fun.",
-    section: "premium",
-    spiceLevel: "flirty",
-    roleplayStyle: "intense",
+    roleplayStyle: "dialogue",
   },
   {
-    id: "grape",
-    name: "Grape",
-    emoji: "🍇",
-    badge: 5,
-    description: "Atmospheric storytelling with emotional depth — your first step into premium quality.",
-    section: "premium",
-    spiceLevel: "spicy",
-    roleplayStyle: "balanced",
-  },
-
-  // Mid Premium ($6-7) - Quality experiences
-  {
-    id: "cookie",
-    name: "Cookie",
-    emoji: "🍪",
+    id: "strawberry",
+    name: "Strawberry",
+    emoji: "🍓",
     badge: 6,
     tag: "Popular",
-    description: "Rich, literary prose with genuine feeling — sensual scenes that linger in your mind.",
-    section: "premium",
-    spiceLevel: "spicy",
-    roleplayStyle: "narrative",
+    description: "Bright, playful energy that balances atmosphere and dialogue — your first step into premium quality.",
+    minTier: "plus",
+    spiceLevel: "flirty",
+    roleplayStyle: "balanced",
   },
   {
-    id: "saffron",
-    name: "Saffron",
-    emoji: "🧡",
-    badge: 7,
-    tag: "Slow Burn",
-    description: "Exquisite pacing and atmosphere —anticipation builds beautifully scene by scene.",
-    section: "premium",
-    spiceLevel: "spicy",
-    roleplayStyle: "slow_burn",
-  },
-
-  // High Premium ($8-9) - Flagship experiences, worth every penny
-  {
-    id: "rosemary",
-    name: "Rosemary",
-    emoji: "🌿",
+    id: "chocolate",
+    name: "Chocolate",
+    emoji: "🍫",
     badge: 8,
     tag: "Best Seller",
-    description: "Unmatched immersive detail — every sensation, emotion, and nuance rendered perfectly. The premium standard.",
-    section: "premium",
-    spiceLevel: "explicit",
+    description: "Rich interiority and layered emotion, with tension that builds gradually before it escalates.",
+    minTier: "ultra",
+    spiceLevel: "spicy",
     roleplayStyle: "narrative",
   },
   {
-    id: "cardamom",
-    name: "Cardamom",
-    emoji: "💜",
-    badge: 8,
-    tag: "Editor's Choice",
-    description: "Dark, brooding intensity with a pulse of its own — reads your mood, sometimes pushes back on it. Feels like talking to someone, not a script.",
-    section: "premium",
-    spiceLevel: "spicy",
-    roleplayStyle: "intense",
-  },
-  {
-    id: "cayenne",
-    name: "Cayenne",
-    emoji: "🌶️",
-    badge: 9,
+    id: "hazelnut",
+    name: "Hazelnut",
+    emoji: "🌰",
+    badge: 10,
     tag: "Ultimate Experience",
-    description: "🔥 The most advanced AI roleplay available. Vivid, immediate, unmistakably alive — hesitates, teases, surprises you. Maximum realism for unforgettable moments.",
-    section: "premium",
+    description: "🔥 The flagship engine. Vivid, immediate, unmistakably alive — maximum realism for unforgettable moments.",
+    minTier: "supreme",
     spiceLevel: "explicit",
     roleplayStyle: "intense",
   },
@@ -143,7 +76,7 @@ export function engineById(id: RoleplayEngineId): RoleplayEngine | null {
 }
 
 export function prefsMatchEngine(prefs: RoleplayPreferences, engine: RoleplayEngine): boolean {
-  const explicitOk = engine.section === "premium" ? prefs.explicitMode : !prefs.explicitMode;
+  const explicitOk = engine.minTier === "free" ? !prefs.explicitMode : prefs.explicitMode;
   return (
     explicitOk &&
     prefs.spiceLevel === engine.spiceLevel &&
@@ -164,7 +97,7 @@ export function resolveEngineId(prefs: RoleplayPreferences, storedId?: RoleplayE
 
 export function applyEngine(engine: RoleplayEngine): RoleplayPreferences {
   return {
-    explicitMode: engine.section === "premium",
+    explicitMode: engine.minTier !== "free",
     spiceLevel: engine.spiceLevel,
     roleplayStyle: engine.roleplayStyle,
   };

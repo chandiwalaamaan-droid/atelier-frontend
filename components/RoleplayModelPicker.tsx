@@ -175,34 +175,25 @@ export default function RoleplayModelPicker({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  const freeEngines = useMemo(() => ROLEPLAY_ENGINES.filter((e) => e.section === "free"), []);
-  const premiumEngines = useMemo(() => ROLEPLAY_ENGINES.filter((e) => e.section === "premium"), []);
+  const freeEngines = useMemo(() => ROLEPLAY_ENGINES.filter((e) => e.minTier === "free"), []);
+  const plusEngines = useMemo(() => ROLEPLAY_ENGINES.filter((e) => e.minTier === "plus"), []);
+  const ultraEngines = useMemo(() => ROLEPLAY_ENGINES.filter((e) => e.minTier === "ultra"), []);
+  const supremeEngines = useMemo(() => ROLEPLAY_ENGINES.filter((e) => e.minTier === "supreme"), []);
 
-  // Group premium engines by quality tier for better UX
-  const budgetPremium = useMemo(() => premiumEngines.filter((e) => (e.badge || 0) <= 5), [premiumEngines]);
-  const midPremium = useMemo(() => premiumEngines.filter((e) => (e.badge || 0) >= 6 && (e.badge || 0) <= 7), [premiumEngines]);
-  const flagshipPremium = useMemo(() => premiumEngines.filter((e) => (e.badge || 0) >= 8), [premiumEngines]);
-
-  // Smart recommendation based on user preferences
+  // Smart recommendation based on user preferences — one engine per tier now,
+  // so this just picks the tier whose spice/style pairing is the closest match.
   const recommendedEngine = useMemo(() => {
-    // If user hasn't used premium much, recommend mid-tier
     if (!prefs.explicitMode) {
-      return budgetPremium[0] || null;
+      return plusEngines[0] || null;
     }
-    // For spicy users, recommend cookie or saffron (great balance)
     if (prefs.spiceLevel === "spicy" && prefs.roleplayStyle === "narrative") {
-      return ROLEPLAY_ENGINES.find((e) => e.id === "cookie") || null;
+      return ultraEngines[0] || null;
     }
-    if (prefs.spiceLevel === "spicy" && prefs.roleplayStyle === "slow_burn") {
-      return ROLEPLAY_ENGINES.find((e) => e.id === "saffron") || null;
-    }
-    // For explicit intense, recommend cayenne
     if (prefs.spiceLevel === "explicit" && prefs.roleplayStyle === "intense") {
-      return ROLEPLAY_ENGINES.find((e) => e.id === "cayenne") || null;
+      return supremeEngines[0] || null;
     }
-    // Default to rosemary (best seller)
-    return ROLEPLAY_ENGINES.find((e) => e.id === "rosemary") || null;
-  }, [prefs, budgetPremium]);
+    return ultraEngines[0] || null;
+  }, [prefs, plusEngines, ultraEngines, supremeEngines]);
 
   if (!open) return null;
 
@@ -232,7 +223,7 @@ export default function RoleplayModelPicker({
                 Choose your experience
               </h2>
               <p className="text-xs text-parchment/50 mt-1">
-                Active: {activeEngineLabel(prefs, engineId)} · Premium engines unlock at 18+
+                Active: {activeEngineLabel(prefs, engineId)}
               </p>
             </div>
             <button
@@ -246,8 +237,8 @@ export default function RoleplayModelPicker({
           <div className="mt-3 rounded-xl bg-gradient-to-r from-violet-500/10 to-gold/10 border border-violet-400/25 px-3 py-2.5 flex items-start gap-2 text-xs text-parchment/90">
             <span className="text-base leading-none">💎</span>
             <div>
-              <p className="font-medium text-parchment mb-0.5">All engines included — no paywalls</p>
-              <p className="text-parchment/60">Start free, upgrade your vibe. Higher badges = richer, more immersive experiences.</p>
+              <p className="font-medium text-parchment mb-0.5">All engines included — free to use</p>
+              <p className="text-parchment/60">Higher badges = richer, more immersive experiences.</p>
             </div>
           </div>
         </header>
@@ -282,7 +273,7 @@ export default function RoleplayModelPicker({
 
           <section>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-medium text-parchment/45 uppercase tracking-wider">Premium</h3>
+              <h3 className="text-xs font-medium text-parchment/45 uppercase tracking-wider">More Styles</h3>
               <span className="text-[10px] text-rose/80 border border-rose/30 rounded-full px-2 py-0.5">Explicit</span>
             </div>
 
@@ -314,15 +305,15 @@ export default function RoleplayModelPicker({
               </div>
             ) : (
               <>
-                {/* Budget Premium - Entry Level */}
-                {budgetPremium.length > 0 && (
+                {/* Plus - Entry Level */}
+                {plusEngines.length > 0 && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
-                      <h4 className="text-[11px] font-medium text-emerald-400/80 uppercase tracking-wider">Entry Level</h4>
-                      <span className="text-[10px] text-emerald-400/60">Great value</span>
+                      <h4 className="text-[11px] font-medium text-emerald-400/80 uppercase tracking-wider">Plus</h4>
+                      <span className="text-[10px] text-emerald-400/60">Balanced</span>
                     </div>
                     <div className="space-y-2">
-                      {budgetPremium.map((engine) => (
+                      {plusEngines.map((engine) => (
                         <EngineCard
                           key={engine.id}
                           engine={engine}
@@ -341,15 +332,15 @@ export default function RoleplayModelPicker({
                   </div>
                 )}
 
-                {/* Mid Premium - Popular Choices */}
-                {midPremium.length > 0 && (
+                {/* Ultra - Popular Choice */}
+                {ultraEngines.length > 0 && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
-                      <h4 className="text-[11px] font-medium text-gold/80 uppercase tracking-wider">Most Popular</h4>
-                      <span className="text-[10px] text-gold/60">⭐ Great quality</span>
+                      <h4 className="text-[11px] font-medium text-gold/80 uppercase tracking-wider">Ultra</h4>
+                      <span className="text-[10px] text-gold/60">⭐ Fan favorite</span>
                     </div>
                     <div className="space-y-2">
-                      {midPremium.map((engine) => (
+                      {ultraEngines.map((engine) => (
                         <EngineCard
                           key={engine.id}
                           engine={engine}
@@ -368,15 +359,15 @@ export default function RoleplayModelPicker({
                   </div>
                 )}
 
-                {/* Flagship Premium - Best of the Best */}
-                {flagshipPremium.length > 0 && (
+                {/* Supreme - Flagship */}
+                {supremeEngines.length > 0 && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
-                      <h4 className="text-[11px] font-medium text-violet-300 uppercase tracking-wider">🏆 Ultimate Experience</h4>
-                      <span className="text-[10px] text-violet-300/80">Worth every penny</span>
+                      <h4 className="text-[11px] font-medium text-violet-300 uppercase tracking-wider">🏆 Supreme</h4>
+                      <span className="text-[10px] text-violet-300/80">The full experience</span>
                     </div>
                     <div className="space-y-2">
-                      {flagshipPremium.map((engine) => (
+                      {supremeEngines.map((engine) => (
                         <EngineCard
                           key={engine.id}
                           engine={engine}

@@ -360,28 +360,61 @@ export default function ChatPage() {
     let acc = "";
     let carry = "";
 
-    // Streaming replies can arrive as dozens-to-hundreds of small chunks
-    // (especially on the longer, more elaborate 18+ engines). Calling
-    // setMessages on every single chunk forces a full re-render of the
-    // entire message list on every chunk, which saturates the main thread
-    // and freezes the tab on mobile / blocks clicks on desktop. Instead,
-    // accumulate text locally and flush to React state at most once per
-    // animation frame.
-    let rafId: number | null = null;
-    let pendingFlush = false;
+    // The backend now buffers its own output to sentence/action boundaries
+    // before writing anything (see the backend's streaming fix) — a reply
+    // is never forwarded to us mid-sentence. That's a correctness win, but
+    // it changes the *shape* of what arrives here: instead of a steady
+    // trickle of small per-token chunks, we now get fewer, larger bursts
+    // (a whole sentence or *action* landing all at once, sometimes after a
+    // multi-second gap while the model finishes forming it). Painting
+    // `acc` straight to state the instant each burst arrives would make
+    // replies visibly "pop" in sentence-sized jumps instead of feeling
+    // like they're being typed.
+    //
+    // revealedLen decouples what's been *received* (acc) from what's been
+    // *shown* — a small animation loop eases the displayed text toward
+    // acc over time instead of jumping straight to it, so the reply still
+    // reads as continuous typing no matter how chunky the underlying
+    // bursts are. The catch-up window keeps a long burst from trailing
+    // noticeably behind generation: reveal speed scales up with backlog
+    // size so a big sentence still finishes revealing in well under a
+    // second, while small trickles ease in at a comfortable reading pace.
+    const BASE_REVEAL_CHARS_PER_SEC = 45;
+    const CATCHUP_WINDOW_SECONDS = 0.5;
 
-    const flush = () => {
-      rafId = null;
-      pendingFlush = false;
+    let revealedLen = 0;
+    let lastTick: number | null = null;
+    let animFrame: number | null = null;
+
+    const paintRevealed = () => {
       setMessages((prev: Message[]) =>
-        prev.map((m) => (m.id === assistantId ? { ...m, content: acc } : m))
+        prev.map((m) => (m.id === assistantId ? { ...m, content: acc.slice(0, Math.floor(revealedLen)) } : m))
       );
     };
 
-    const scheduleFlush = () => {
-      if (pendingFlush) return;
-      pendingFlush = true;
-      rafId = requestAnimationFrame(flush);
+    const tick = (now: number) => {
+      animFrame = null;
+      if (lastTick === null) lastTick = now;
+      const dt = (now - lastTick) / 1000;
+      lastTick = now;
+      const backlog = acc.length - revealedLen;
+      if (backlog > 0) {
+        const speed = Math.max(BASE_REVEAL_CHARS_PER_SEC, backlog / CATCHUP_WINDOW_SECONDS);
+        revealedLen = Math.min(acc.length, revealedLen + speed * dt);
+        paintRevealed();
+        animFrame = requestAnimationFrame(tick);
+      } else {
+        // Fully caught up — stop scheduling frames until more text
+        // arrives; reset lastTick so the next run starts its own dt
+        // clock instead of counting the idle gap as elapsed reveal time.
+        lastTick = null;
+      }
+    };
+
+    const ensureAnimating = () => {
+      if (animFrame === null) {
+        animFrame = requestAnimationFrame(tick);
+      }
     };
 
     try {
@@ -394,11 +427,13 @@ export default function ChatPage() {
         for (const seg of segments) {
           if (seg.type === "text") {
             acc += seg.value;
+            ensureAnimating();
             continue;
           }
           const ev = seg.value;
           if (ev.type === "failover") {
             acc = "";
+            revealedLen = 0;
             showToast("Reconnecting to keep the reply on track…");
           } else if (ev.type === "fatal") {
             const message = typeof ev.message === "string" ? ev.message : "Something went wrong.";
@@ -408,14 +443,16 @@ export default function ChatPage() {
             setRelationshipLevel(ev.level);
           }
         }
-        scheduleFlush();
       }
     } finally {
-      // Guarantee a final, synchronous flush so the last chunk(s) that
-      // arrived between the last rAF tick and stream end are never dropped.
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
+      // Guarantee a final, synchronous flush of the *complete* text so
+      // nothing the reveal animation hadn't caught up to yet — or that
+      // arrived between the last rAF tick and stream end — is ever
+      // dropped or left visibly mid-reveal once streaming is over
+      // (whether it ended normally or was stopped early).
+      if (animFrame !== null) {
+        cancelAnimationFrame(animFrame);
+        animFrame = null;
       }
       setMessages((prev: Message[]) =>
         prev.map((m) => (m.id === assistantId ? { ...m, content: acc } : m))
