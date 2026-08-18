@@ -55,7 +55,6 @@ export default function ExplorePage() {
   const [characters, setCharacters] = useState<ExploreCardCharacter[] | null>(null);
   const [tab, setTab] = useState<TabId>("all");
   const [query, setQuery] = useState("");
-  const [remixingId, setRemixingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [reportTarget, setReportTarget] = useState<ExploreCardCharacter | null>(null);
   const [reportReason, setReportReason] = useState(REPORT_REASONS[0].value);
@@ -99,9 +98,10 @@ export default function ExplorePage() {
     if (!characters) return null;
     const q = query.trim().toLowerCase();
     let list = characters.filter((c) => matchesTab(c, tab));
-    if (tab === "trending") {
-      list = [...list].sort((a, b) => a.name.localeCompare(b.name));
-    }
+    // No extra client-side sort here anymore — /api/characters/discover
+    // already returns characters ranked by engagement (see #8), so the
+    // "Trending" tab just shows that real order rather than a placeholder
+    // alphabetical sort standing in for it.
     if (q) {
       list = list.filter(
         (c) =>
@@ -121,22 +121,34 @@ export default function ExplorePage() {
     return list;
   }, [characters, tab, query]);
 
-  async function onRemix(id: string) {
-    if (remixingId) return;
-    setError("");
-    setRemixingId(id);
+  function onChat(id: string) {
+    router.push(`/chat/${id}`);
+  }
+
+  async function onToggleFavorite(target: ExploreCardCharacter) {
+    // Optimistic update — favoriting should feel instant, and a failed
+    // request here is low-stakes enough (worst case: one stale star until
+    // the next load) that rolling back on error is more disruptive than
+    // just letting the next page load reconcile it.
+    setCharacters((prev) =>
+      prev
+        ? prev.map((c) =>
+            c.id === target.id
+              ? {
+                  ...c,
+                  isFavorited: !c.isFavorited,
+                  favoriteCount: (c.favoriteCount ?? 0) + (c.isFavorited ? -1 : 1),
+                }
+              : c
+          )
+        : prev
+    );
     try {
-      const res = await apiFetch(`/api/characters/${id}/remix`, { method: "POST" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.character) {
-        setError(data.error || "Couldn't add that character.");
-        return;
-      }
-      router.push(`/chat/${data.character.id}`);
+      await apiFetch(`/api/characters/${target.id}/favorite`, {
+        method: target.isFavorited ? "DELETE" : "POST",
+      });
     } catch {
-      setError("Couldn't reach the server.");
-    } finally {
-      setRemixingId(null);
+      // Silently reconciled on next load — see comment above.
     }
   }
 
@@ -185,7 +197,7 @@ export default function ExplorePage() {
                     <PremiumLockBadge />
                   </p>
                 </div>
-                <span className="text-5xl opacity-80 hidden sm:block group-hover:animate-float" aria-hidden>
+                 <span className="text-5xl opacity-80 hidden sm:block group-hover:animate-float" aria-hidden="true">
                   ♛
                 </span>
               </div>
@@ -267,8 +279,8 @@ export default function ExplorePage() {
                   <ExploreCharacterCard
                     key={c.id}
                     character={c}
-                    onRemix={() => onRemix(c.id)}
-                    remixing={remixingId === c.id}
+                    onChat={() => onChat(c.id)}
+                    onToggleFavorite={() => onToggleFavorite(c)}
                     onReport={() => {
                       setReportTarget(c);
                       setReportReason(REPORT_REASONS[0].value);

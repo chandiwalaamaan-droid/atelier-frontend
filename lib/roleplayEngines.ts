@@ -14,8 +14,14 @@ export type RoleplayEngine = {
   id: Exclude<RoleplayEngineId, "custom">;
   name: string;
   emoji: string;
-  /** Intensity / depth hint (1–10), matches the backend's intelligence score. */
+  /** Intensity / depth hint (1–10), matches the backend's intelligence score.
+   * Not shown directly to users anymore — see outcomeLabel below — but kept
+   * for internal comparisons (e.g. sorting engines by depth). */
   badge: number;
+  /** Short, plain-language answer to "what do I actually get" — shown in the
+   * picker instead of the raw badge number, which users had no way to
+   * interpret (is 6 fast? deep? more explicit?) on its own. */
+  outcomeLabel: string;
   tag?: string;
   description: string;
   /** Lowest membership tier that can select this engine — matches the backend's minTier. */
@@ -30,6 +36,7 @@ export const ROLEPLAY_ENGINES: RoleplayEngine[] = [
     name: "Vanilla",
     emoji: "🙂",
     badge: 3,
+    outcomeLabel: "Fast & casual",
     description: "Warm, low-friction, snappy replies — the everyday go-to for casual roleplay.",
     minTier: "free",
     spiceLevel: "flirty",
@@ -40,6 +47,7 @@ export const ROLEPLAY_ENGINES: RoleplayEngine[] = [
     name: "Strawberry",
     emoji: "🍓",
     badge: 6,
+    outcomeLabel: "Emotional & playful",
     tag: "Popular",
     description: "Bright, playful energy that balances atmosphere and dialogue — your first step into premium quality.",
     minTier: "plus",
@@ -51,6 +59,7 @@ export const ROLEPLAY_ENGINES: RoleplayEngine[] = [
     name: "Chocolate",
     emoji: "🍫",
     badge: 8,
+    outcomeLabel: "Deep roleplay",
     tag: "Best Seller",
     description: "Rich interiority and layered emotion, with tension that builds gradually before it escalates.",
     minTier: "ultra",
@@ -62,6 +71,7 @@ export const ROLEPLAY_ENGINES: RoleplayEngine[] = [
     name: "Hazelnut",
     emoji: "🌰",
     badge: 10,
+    outcomeLabel: "Maximum immersion",
     tag: "Ultimate Experience",
     description: "🔥 The flagship engine. Vivid, immediate, unmistakably alive — maximum realism for unforgettable moments.",
     minTier: "supreme",

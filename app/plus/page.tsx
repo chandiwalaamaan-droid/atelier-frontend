@@ -41,9 +41,9 @@ export default function PlusPage() {
         <div className="flex-1 overflow-y-auto px-4 md:px-10 py-8">
           <header className="text-center max-w-2xl mx-auto mb-10">
             <span className="text-4xl block mb-3">♛</span>
-            <h1 className="font-display text-3xl md:text-4xl mb-2 gradient-text">Get unlimited access on Rolichat</h1>
+            <h1 className="font-display text-3xl md:text-4xl mb-2 gradient-text">Rolichat+ Early Access</h1>
             <p className="text-sm text-parchment/50">
-              Higher tiers unlock more premium engines and memory — billing is not active yet.
+              Everything is free right now. Premium engines, extended memory, and Sparks launch later — no charges until we flip the switch.
             </p>
             <p className="text-xs text-gold/80 mt-3 inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gold/10 border border-gold/20">
               <span className="w-1.5 h-1.5 rounded-full bg-gold animate-sparkle" />
@@ -139,7 +139,7 @@ export default function PlusPage() {
           </div>
 
           <p className="text-center text-xs text-parchment/35 mt-10 max-w-lg mx-auto">
-            Subscriptions will connect to payment later. Until then, all engines and chats remain free. See{" "}
+            This page is for planning purposes only. Nothing is charged right now. When payments go live, we&apos;ll notify you and update these plans. See{" "}
             <Link href="/terms" className="text-gold hover:text-gold/80 transition-colors">
               Terms
             </Link>

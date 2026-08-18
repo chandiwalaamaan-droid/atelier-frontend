@@ -31,7 +31,7 @@ type Props = {
 
 function SlidersIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <svg className={className} width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path
         d="M4 7h10M18 7h2M4 12h2M8 12h12M4 17h8M16 17h4"
         stroke="currentColor"
@@ -82,8 +82,7 @@ function EngineCard({
             <span className="flex items-center gap-2 flex-wrap">
               <span className="font-medium text-parchment truncate">{engine.name}</span>
               <span className="engine-badge inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-violet-500/25 text-violet-100">
-                <span aria-hidden>★</span>
-                {engine.badge}
+                {engine.outcomeLabel}
               </span>
               {engine.tag && (
                 <span className="text-[10px] uppercase tracking-wide text-gold/70 font-medium">{engine.tag}</span>
@@ -208,7 +207,7 @@ export default function RoleplayModelPicker({
     onApply(next, engineId);
   }
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal aria-labelledby="engine-picker-title">
+    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-labelledby="engine-picker-title">
       <button
         type="button"
         className="absolute inset-0 bg-ink/70 backdrop-blur-[2px]"

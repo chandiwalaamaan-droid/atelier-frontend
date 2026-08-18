@@ -19,9 +19,11 @@ import {
 import {
   activeEngineEmoji,
   activeEngineLabel,
+  engineById,
   resolveEngineId,
   type RoleplayEngineId,
 } from "@/lib/roleplayEngines";
+import { MEMBERSHIP_TIERS } from "@/lib/premium";
 
 type Character = {
   id: string;
@@ -172,8 +174,11 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [chatLoadError, setChatLoadError] = useState("");
   const [notFound, setNotFound] = useState(false);
   const [toast, setToast] = useState("");
+  const [failoverMessageId, setFailoverMessageId] = useState<string | null>(null);
+  const failoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showJump, setShowJump] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
@@ -228,6 +233,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     const controller = new AbortController();
+    setChatLoadError("");
     apiFetch(`/api/chat/${characterId}`, { signal: controller.signal })
       .then(async (r) => {
         if (r.status === 401) {
@@ -251,6 +257,7 @@ export default function ChatPage() {
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         console.error("Failed to load chat:", err);
+        setChatLoadError("Couldn't load this conversation. Please check your connection and try again.");
       });
     return () => controller.abort();
   }, [characterId]);
@@ -432,15 +439,43 @@ export default function ChatPage() {
           }
           const ev = seg.value;
           if (ev.type === "failover") {
+            // NVIDIA (first in the backend's fallback chain) times out
+            // mid-stream more often than the others — see the backend's
+            // NVIDIA_TIMEOUT_MS comment — which wipes whatever had already
+            // streamed in and starts the reply over from the next
+            // provider. Silently clearing the bubble back to the plain
+            // "is typing" dots reads as the app glitching or losing what
+            // it had generated; naming the transition here for a brief,
+            // fixed window makes the same reset read as intentional.
             acc = "";
             revealedLen = 0;
-            showToast("Reconnecting to keep the reply on track…");
+            setFailoverMessageId(assistantId);
+            if (failoverTimerRef.current) clearTimeout(failoverTimerRef.current);
+            failoverTimerRef.current = setTimeout(() => {
+              setFailoverMessageId((cur) => (cur === assistantId ? null : cur));
+            }, 700);
           } else if (ev.type === "fatal") {
             const message = typeof ev.message === "string" ? ev.message : "Something went wrong.";
             setError(message);
             onFatal(message);
           } else if (ev.type === "relationship" && typeof ev.level === "number") {
             setRelationshipLevel(ev.level);
+          } else if (ev.type === "engine_downgrade" && typeof ev.requested === "string" && typeof ev.used === "string") {
+            // Backend paywall substituted a lower engine than the client
+            // asked for (see resolveEngineForTier's comment in
+            // providers/engines.ts) — surface it as an upsell rather than
+            // silently serving a different engine than the picker showed.
+            // Inert today (ENFORCE_ENGINE_TIERS defaults off, same as
+            // PREMIUM_PAYMENTS_ENABLED here), but wired up so flipping
+            // either on later doesn't leave this failing silently.
+            const requestedName = engineById(ev.requested as RoleplayEngineId)?.name ?? ev.requested;
+            const usedName = engineById(ev.used as RoleplayEngineId)?.name ?? ev.used;
+            const tier = MEMBERSHIP_TIERS.find((t) => t.id === ev.requiredTier);
+            showToast(
+              tier
+                ? `Replied with ${usedName} — ${requestedName} needs ${tier.name}. Upgrade on the Plus page.`
+                : `Replied with ${usedName} instead of ${requestedName}.`
+            );
           }
         }
       }
@@ -454,6 +489,11 @@ export default function ChatPage() {
         cancelAnimationFrame(animFrame);
         animFrame = null;
       }
+      if (failoverTimerRef.current) {
+        clearTimeout(failoverTimerRef.current);
+        failoverTimerRef.current = null;
+      }
+      setFailoverMessageId((cur) => (cur === assistantId ? null : cur));
       setMessages((prev: Message[]) =>
         prev.map((m) => (m.id === assistantId ? { ...m, content: acc } : m))
       );
@@ -627,7 +667,7 @@ export default function ChatPage() {
     a.href = url;
     a.download = `${character.name} - Chat Export.txt`;
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   async function confirmResetConversation() {
@@ -636,6 +676,10 @@ export default function ChatPage() {
     try {
       const r = await apiFetch(`/api/chat/${characterId}`, { method: "DELETE" });
       const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setError(data.error || "Couldn't reset the conversation.");
+        return;
+      }
       setMessages([]);
       setRelationshipLevel(typeof data.relationshipLevel === "number" ? data.relationshipLevel : 0);
       setError("");
@@ -659,6 +703,10 @@ export default function ChatPage() {
     try {
       const r = await apiFetch(`/api/chat/${characterId}/messages/${deleteTargetId}`, { method: "DELETE" });
       const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setError(data.error || "Couldn't delete that message.");
+        return;
+      }
       setMessages((prev) => prev.filter((m) => m.id !== deleteTargetId));
       if (typeof data.relationshipLevel === "number") setRelationshipLevel(data.relationshipLevel);
     } catch {
@@ -744,14 +792,18 @@ export default function ChatPage() {
       return;
     }
 
+    audioEl.pause();
+    setPlayingId(null);
+
     const cached = audioCacheRef.current.get(id);
     if (cached) {
       audioEl.src = cached;
       audioEl.play().catch(() => {
         setVoiceError("Failed to play audio.");
-        setPlayingId(null);
+        setLoadingAudioId(null);
       });
       setPlayingId(id);
+      setLoadingAudioId(null);
       return;
     }
 
@@ -771,9 +823,11 @@ export default function ChatPage() {
       const cache = audioCacheRef.current;
       cache.set(id, url);
       if (cache.size > 20) {
-        const oldest = cache.keys().next().value!;
-        URL.revokeObjectURL(cache.get(oldest)!);
-        cache.delete(oldest);
+        const oldest = cache.keys().next().value;
+        if (oldest) {
+          URL.revokeObjectURL(cache.get(oldest)!);
+          cache.delete(oldest);
+        }
       }
       audioEl.src = url;
       audioEl.play().catch(() => {
@@ -874,19 +928,27 @@ export default function ChatPage() {
     return (
       <RequireAuth>
         <AppShell variant="chat">
-          <main className="flex-1 flex flex-col min-h-0 relative animate-pulse">
-            <header className="flex items-center gap-3 px-6 py-4 border-b border-white/10">
-              <div className="w-6 h-6 rounded bg-white/10" />
-              <div className="w-9 h-9 rounded-full bg-white/10" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 w-24 rounded bg-white/10" />
-                <div className="h-3 w-40 rounded bg-white/10" />
-              </div>
-            </header>
-            <div className="flex-1 px-6 py-6 space-y-4">
-              <div className="max-w-[85%] sm:max-w-lg h-16 rounded-2xl bg-surface-card" />
-              <div className="max-w-xs h-10 ml-auto rounded-2xl bg-white/5" />
-            </div>
+          <main className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
+            {chatLoadError ? (
+              <>
+                <p className="font-display text-xl text-parchment/80 text-center">{chatLoadError}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setChatLoadError("");
+                    window.location.reload();
+                  }}
+                  className="text-sm bg-gold text-ink px-5 py-2 rounded-full font-medium hover:brightness-110 focus-ring btn-shine"
+                >
+                  Retry
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="w-8 h-8 rounded-full border-2 border-gold/30 border-t-gold animate-spin" />
+                <p className="text-parchment/50 text-sm">Loading conversation…</p>
+              </>
+            )}
           </main>
         </AppShell>
       </RequireAuth>
@@ -1022,6 +1084,7 @@ export default function ChatPage() {
             )}
             {messages.map((m: Message, i: number) => {
               const isLastAssistant = m.role === "assistant" && i === messages.length - 1;
+              const isFailingOver = isLastAssistant && failoverMessageId === m.id;
               const isStreamingEmpty = isLastAssistant && sending && !m.content;
               const isEditing = editingId === m.id;
               const msgReactions = reactions.get(m.id) || [];
@@ -1111,7 +1174,14 @@ export default function ChatPage() {
                             : "chat-bubble-assistant rounded-tl-sm"
                         }`}
                       >
-                        {isStreamingEmpty ? (
+                        {isFailingOver ? (
+                          <div className="typing-indicator-enhanced">
+                            <span className="text-xs text-parchment/60 mr-1">Switching to a faster engine…</span>
+                            <span className="typing-indicator-dot" />
+                            <span className="typing-indicator-dot" />
+                            <span className="typing-indicator-dot" />
+                          </div>
+                        ) : isStreamingEmpty ? (
                           <div className="typing-indicator-enhanced">
                             <span className="text-xs text-parchment/60 mr-1">{character.name} is typing</span>
                             <span className="typing-indicator-dot" />

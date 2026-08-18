@@ -7,7 +7,6 @@ import { apiFetch } from "@/lib/api";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { GoogleCompleteProfile } from "@/components/GoogleCompleteProfile";
 import { clearAuthCache } from "@/lib/authCache";
-import { setAuthToken } from "@/lib/authToken";
 import Logo from "@/components/Logo";
 
 export default function SignupPage() {
@@ -47,7 +46,6 @@ export default function SignupPage() {
         setError(data.error || "Something went wrong.");
         return;
       }
-      setAuthToken(data.token);
       goToExplore();
     } catch {
       // fetch() itself threw (network/CORS) — without this the button was
@@ -75,7 +73,6 @@ export default function SignupPage() {
         setGooglePending({ credential, suggestedDisplayName: data.suggestedDisplayName || "" });
         return;
       }
-      setAuthToken(data.token);
       goToExplore();
     } catch {
       setError("Couldn't reach the server. Check your connection and try again.");
@@ -105,17 +102,17 @@ export default function SignupPage() {
       <div
         className="absolute top-[-20%] left-[-10%] w-[400px] h-[400px] rounded-full opacity-[0.05] pointer-events-none"
         style={{ background: "radial-gradient(circle, #c9a227 0%, transparent 70%)", animation: "float 8s ease-in-out infinite" }}
-        aria-hidden
+        aria-hidden="true"
       />
       <div
         className="absolute bottom-[-20%] right-[-10%] w-[400px] h-[400px] rounded-full opacity-[0.05] pointer-events-none"
         style={{ background: "radial-gradient(circle, #b5657a 0%, transparent 70%)", animation: "float 8s ease-in-out infinite", animationDelay: "-4s" }}
-        aria-hidden
+        aria-hidden="true"
       />
       <div
         className="absolute top-[30%] right-[20%] w-[250px] h-[250px] rounded-full opacity-[0.03] pointer-events-none"
         style={{ background: "radial-gradient(circle, #8b5cf6 0%, transparent 70%)", animation: "float 6s ease-in-out infinite", animationDelay: "-2s" }}
-        aria-hidden
+        aria-hidden="true"
       />
 
       <form onSubmit={onSubmit} className="relative w-full max-w-sm rounded-2xl bg-gradient-to-br from-plum/60 to-plum-deep/80 p-8 border border-white/5 shadow-2xl animate-scale-in glass-strong">

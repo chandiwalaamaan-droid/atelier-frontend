@@ -23,11 +23,8 @@ type AppShellProps = {
 
 const NAV: { href: string; label: string; icon: string; badge?: string }[] = [
   { href: "/explore", label: "Explore", icon: "⌂" },
-  { href: "/plus", label: "Rolichat+", icon: "♛", badge: PREMIUM_PAYMENTS_ENABLED ? undefined : "Free" },
-  { href: "/wallet", label: "Wallet", icon: "◎" },
-  { href: "/dashboard", label: "Studio", icon: "✦" },
-  { href: "/me", label: "Me", icon: "◉" },
-  { href: "/me/creations", label: "My Creations", icon: "🎭" },
+  { href: "/dashboard", label: "Create", icon: "✦" },
+  { href: "/me", label: "Profile", icon: "◉" },
 ];
 
 export default function AppShell({ children, variant = "default" }: AppShellProps) {
@@ -37,11 +34,12 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    apiFetch("/api/auth/me")
+    const controller = new AbortController();
+    apiFetch("/api/auth/me", { signal: controller.signal })
       .then((r) => r.json().catch(() => ({})))
       .then((d) => setDisplayName(d.user?.displayName ?? ""))
       .catch(() => {});
-    apiFetch("/api/characters")
+    apiFetch("/api/characters", { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => {
         const list = (d.characters ?? []) as ChatPreview[];
@@ -49,6 +47,7 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
         setChats(withPreview.slice(0, 8));
       })
       .catch(() => setChats([]));
+    return () => controller.abort();
   }, [pathname]);
 
   return (
@@ -183,68 +182,71 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
 
         {/* Mobile menu */}
         {mobileMenuOpen && (
-          <nav className="md:hidden border-b border-white/5 bg-surface-raised/95 backdrop-blur-sm px-4 py-3 animate-fade-in">
-            <div className="space-y-1 mb-4">
-              {NAV.map(({ href, label, icon, badge }) => {
-                const active = pathname === href || (href === "/dashboard" && pathname?.startsWith("/characters"));
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 focus-ring ${
-                      active
-                        ? "bg-gradient-to-r from-gold/15 to-gold/5 text-parchment font-medium border border-gold/10"
-                        : "text-parchment/55 hover:text-parchment hover:bg-white/5 border border-transparent"
-                    }`}
-                  >
-                    <span className={`w-5 text-center text-base ${active ? "text-gold" : "opacity-80"}`}>{icon}</span>
-                    <span className="flex-1">{label}</span>
-                    {badge && (
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gold/25 text-gold border border-gold/30">
-                        {badge}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-            <div className="pt-3 border-t border-white/5">
-              <p className="text-[11px] font-medium text-parchment/30 uppercase tracking-widest mb-2">Recent chats</p>
-              {chats.length === 0 && (
-                <p className="px-3 py-2 text-xs text-parchment/30 text-center italic">No chats yet</p>
-              )}
-              <div className="space-y-1 max-h-[200px] overflow-y-auto scrollbar-thin">
-                {chats.map((c) => (
-                  <Link
-                    key={c.id}
-                    href={`/chat/${c.id}`}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-all duration-200 focus-ring border ${
-                      pathname === `/chat/${c.id}`
-                        ? "bg-white/8 border-white/5"
-                        : "hover:bg-white/5 border-transparent"
-                    }`}
-                  >
-                    <span
-                      className="w-7 h-7 shrink-0 rounded-full flex items-center justify-center overflow-hidden text-xs ring-1 ring-white/5"
-                      style={{ backgroundColor: `${c.accentColor}30` }}
+          <div className="md:hidden">
+            <div className="fixed inset-0 bg-ink/60 backdrop-blur-sm z-40" onClick={() => setMobileMenuOpen(false)} />
+            <nav className="relative z-50 border-b border-white/5 bg-surface-raised/95 backdrop-blur-sm px-4 py-3 animate-fade-in">
+              <div className="space-y-1 mb-4">
+                {NAV.map(({ href, label, icon, badge }) => {
+                  const active = pathname === href || (href === "/dashboard" && pathname?.startsWith("/characters"));
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 focus-ring ${
+                        active
+                          ? "bg-gradient-to-r from-gold/15 to-gold/5 text-parchment font-medium border border-gold/10"
+                          : "text-parchment/55 hover:text-parchment hover:bg-white/5 border border-transparent"
+                      }`}
                     >
-                      {c.avatarUrl ? (
-                        <img src={resolveMediaUrl(c.avatarUrl)} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        c.avatarEmoji
+                      <span className={`w-5 text-center text-base ${active ? "text-gold" : "opacity-80"}`}>{icon}</span>
+                      <span className="flex-1">{label}</span>
+                      {badge && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gold/25 text-gold border border-gold/30">
+                          {badge}
+                        </span>
                       )}
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-parchment/85 font-medium">{c.name}</span>
-                      <span className="block truncate text-parchment/35 leading-tight">{c.lastMessagePreview}</span>
-                    </span>
-                  </Link>
-                ))}
+                    </Link>
+                  );
+                })}
               </div>
-            </div>
-          </nav>
+              <div className="pt-3 border-t border-white/5">
+                <p className="text-[11px] font-medium text-parchment/30 uppercase tracking-widest mb-2">Recent chats</p>
+                {chats.length === 0 && (
+                  <p className="px-3 py-2 text-xs text-parchment/30 text-center italic">No chats yet</p>
+                )}
+                <div className="space-y-1 max-h-[200px] overflow-y-auto scrollbar-thin">
+                  {chats.map((c) => (
+                    <Link
+                      key={c.id}
+                      href={`/chat/${c.id}`}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-all duration-200 focus-ring border ${
+                        pathname === `/chat/${c.id}`
+                          ? "bg-white/8 border-white/5"
+                          : "hover:bg-white/5 border-transparent"
+                      }`}
+                    >
+                      <span
+                        className="w-7 h-7 shrink-0 rounded-full flex items-center justify-center overflow-hidden text-xs ring-1 ring-white/5"
+                        style={{ backgroundColor: `${c.accentColor}30` }}
+                      >
+                        {c.avatarUrl ? (
+                          <img src={resolveMediaUrl(c.avatarUrl)} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          c.avatarEmoji
+                        )}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-parchment/85 font-medium">{c.name}</span>
+                        <span className="block truncate text-parchment/35 leading-tight">{c.lastMessagePreview}</span>
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </nav>
+          </div>
         )}
       </>
         )}

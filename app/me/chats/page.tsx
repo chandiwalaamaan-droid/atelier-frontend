@@ -55,7 +55,8 @@ export default function ChatHistoryPage() {
     setCharacters(null);
     apiFetch("/api/characters")
       .then((r) => (r.ok ? r.json() : { characters: [] }))
-      .then((d) => setCharacters(d.characters ?? []));
+      .then((d) => setCharacters(d.characters ?? []))
+      .catch(() => setCharacters([]));
   }
 
   // Only chats that actually have history are worth showing here — a

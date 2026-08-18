@@ -11,7 +11,7 @@ type Props = {
   currentAvatarUrl?: string | null;
   onClose: () => void;
   /** Called with the new avatarUrl once an upload or generation succeeds. */
-  onUpdated: (avatarUrl: string) => void;
+  onUpdated: (avatarUrl: string | null) => void;
 };
 
 /**
