@@ -579,6 +579,19 @@ export default function ChatPage() {
     if (last.role !== "assistant") return;
     const previousContent = last.content;
 
+    // Every sibling entry point (onSend, retryFailedSend, the edit-message
+    // path) sets sendingRef.current = true synchronously right after its
+    // guard check, so a rapid second action (Enter, another regenerate,
+    // Retry) is blocked immediately rather than waiting for the `sending`
+    // React state to re-render and disable the input. This function was
+    // missing that — it only ever *read* the ref, never set it — so during
+    // a regenerate in flight, onSend/retryFailedSend/onRegenerate itself
+    // could all still slip past their own guards and fire a second
+    // concurrent POST against the same conversation, racing the regenerate
+    // request's delete-then-create against a fresh message insert and
+    // risking out-of-order or duplicated history.
+    sendingRef.current = true;
+
     setError("");
     setSending(true);
     lastActionRef.current = { type: "regenerate" };
@@ -695,12 +708,19 @@ export default function ChatPage() {
 
   async function submitEdit(id: string) {
     const newContent = editDraft.trim();
-    if (!newContent || savingEdit) return;
+    if (!newContent || savingEdit || sendingRef.current) return;
 
     const editedIndex = messages.findIndex((m) => m.id === id);
     if (editedIndex === -1) return;
     const previousMessages = messages;
 
+    // See onRegenerate's comment on sendingRef — same fix, same reason:
+    // this function's finally block already reset sendingRef.current to
+    // false (on the assumption it had been locked), but nothing here ever
+    // set it true, so onSend/onRegenerate/retryFailedSend could all slip
+    // past their own guards and fire a second concurrent request while an
+    // edit was still streaming.
+    sendingRef.current = true;
     setSavingEdit(true);
     setError("");
     const assistantId = `local-${Date.now()}-a`;
