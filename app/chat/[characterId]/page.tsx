@@ -367,25 +367,6 @@ export default function ChatPage() {
     let acc = "";
     let carry = "";
 
-    // The backend now buffers its own output to sentence/action boundaries
-    // before writing anything (see the backend's streaming fix) — a reply
-    // is never forwarded to us mid-sentence. That's a correctness win, but
-    // it changes the *shape* of what arrives here: instead of a steady
-    // trickle of small per-token chunks, we now get fewer, larger bursts
-    // (a whole sentence or *action* landing all at once, sometimes after a
-    // multi-second gap while the model finishes forming it). Painting
-    // `acc` straight to state the instant each burst arrives would make
-    // replies visibly "pop" in sentence-sized jumps instead of feeling
-    // like they're being typed.
-    //
-    // revealedLen decouples what's been *received* (acc) from what's been
-    // *shown* — a small animation loop eases the displayed text toward
-    // acc over time instead of jumping straight to it, so the reply still
-    // reads as continuous typing no matter how chunky the underlying
-    // bursts are. The catch-up window keeps a long burst from trailing
-    // noticeably behind generation: reveal speed scales up with backlog
-    // size so a big sentence still finishes revealing in well under a
-    // second, while small trickles ease in at a comfortable reading pace.
     const BASE_REVEAL_CHARS_PER_SEC = 45;
     const CATCHUP_WINDOW_SECONDS = 0.5;
 
@@ -411,9 +392,6 @@ export default function ChatPage() {
         paintRevealed();
         animFrame = requestAnimationFrame(tick);
       } else {
-        // Fully caught up — stop scheduling frames until more text
-        // arrives; reset lastTick so the next run starts its own dt
-        // clock instead of counting the idle gap as elapsed reveal time.
         lastTick = null;
       }
     };
@@ -424,67 +402,52 @@ export default function ChatPage() {
       }
     };
 
+    const processChunk = (chunkValue: Uint8Array | undefined) => {
+      if (!chunkValue?.byteLength) return;
+      carry += decoder.decode(chunkValue, { stream: true });
+      const { segments, rest } = extractEvents(carry);
+      carry = rest;
+      for (const seg of segments) {
+        if (seg.type === "text") {
+          acc += seg.value;
+          ensureAnimating();
+          continue;
+        }
+        const ev = seg.value;
+        if (ev.type === "failover") {
+          acc = "";
+          revealedLen = 0;
+          setFailoverMessageId(assistantId);
+          if (failoverTimerRef.current) clearTimeout(failoverTimerRef.current);
+          failoverTimerRef.current = setTimeout(() => {
+            setFailoverMessageId((cur) => (cur === assistantId ? null : cur));
+          }, 700);
+        } else if (ev.type === "fatal") {
+          const message = typeof ev.message === "string" ? ev.message : "Something went wrong.";
+          setError(message);
+          onFatal(message);
+        } else if (ev.type === "relationship" && typeof ev.level === "number") {
+          setRelationshipLevel(ev.level);
+        } else if (ev.type === "engine_downgrade" && typeof ev.requested === "string" && typeof ev.used === "string") {
+          const requestedName = engineById(ev.requested as RoleplayEngineId)?.name ?? ev.requested;
+          const usedName = engineById(ev.used as RoleplayEngineId)?.name ?? ev.used;
+          const tier = MEMBERSHIP_TIERS.find((t) => t.id === ev.requiredTier);
+          showToast(
+            tier
+              ? `Replied with ${usedName} — ${requestedName} needs ${tier.name}. Upgrade on the Plus page.`
+              : `Replied with ${usedName} instead of ${requestedName}.`
+          );
+        }
+      }
+    };
+
     try {
       while (true) {
         const { done, value } = await reader.read();
+        processChunk(value);
         if (done) break;
-        carry += decoder.decode(value, { stream: true });
-        const { segments, rest } = extractEvents(carry);
-        carry = rest;
-        for (const seg of segments) {
-          if (seg.type === "text") {
-            acc += seg.value;
-            ensureAnimating();
-            continue;
-          }
-          const ev = seg.value;
-          if (ev.type === "failover") {
-            // NVIDIA (first in the backend's fallback chain) times out
-            // mid-stream more often than the others — see the backend's
-            // NVIDIA_TIMEOUT_MS comment — which wipes whatever had already
-            // streamed in and starts the reply over from the next
-            // provider. Silently clearing the bubble back to the plain
-            // "is typing" dots reads as the app glitching or losing what
-            // it had generated; naming the transition here for a brief,
-            // fixed window makes the same reset read as intentional.
-            acc = "";
-            revealedLen = 0;
-            setFailoverMessageId(assistantId);
-            if (failoverTimerRef.current) clearTimeout(failoverTimerRef.current);
-            failoverTimerRef.current = setTimeout(() => {
-              setFailoverMessageId((cur) => (cur === assistantId ? null : cur));
-            }, 700);
-          } else if (ev.type === "fatal") {
-            const message = typeof ev.message === "string" ? ev.message : "Something went wrong.";
-            setError(message);
-            onFatal(message);
-          } else if (ev.type === "relationship" && typeof ev.level === "number") {
-            setRelationshipLevel(ev.level);
-          } else if (ev.type === "engine_downgrade" && typeof ev.requested === "string" && typeof ev.used === "string") {
-            // Backend paywall substituted a lower engine than the client
-            // asked for (see resolveEngineForTier's comment in
-            // providers/engines.ts) — surface it as an upsell rather than
-            // silently serving a different engine than the picker showed.
-            // Inert today (ENFORCE_ENGINE_TIERS defaults off, same as
-            // PREMIUM_PAYMENTS_ENABLED here), but wired up so flipping
-            // either on later doesn't leave this failing silently.
-            const requestedName = engineById(ev.requested as RoleplayEngineId)?.name ?? ev.requested;
-            const usedName = engineById(ev.used as RoleplayEngineId)?.name ?? ev.used;
-            const tier = MEMBERSHIP_TIERS.find((t) => t.id === ev.requiredTier);
-            showToast(
-              tier
-                ? `Replied with ${usedName} — ${requestedName} needs ${tier.name}. Upgrade on the Plus page.`
-                : `Replied with ${usedName} instead of ${requestedName}.`
-            );
-          }
-        }
       }
     } finally {
-      // Guarantee a final, synchronous flush of the *complete* text so
-      // nothing the reveal animation hadn't caught up to yet — or that
-      // arrived between the last rAF tick and stream end — is ever
-      // dropped or left visibly mid-reveal once streaming is over
-      // (whether it ended normally or was stopped early).
       if (animFrame !== null) {
         cancelAnimationFrame(animFrame);
         animFrame = null;
@@ -504,8 +467,11 @@ export default function ChatPage() {
     try {
       const r = await apiFetch(`/api/chat/${characterId}`);
       if (!r.ok) return;
-      const data = await r.json();
-      setMessages(data.messages);
+      const data = await r.json() as { messages: Message[] };
+      setMessages((prev) => {
+        const backendById = new Map(data.messages.map((m: Message) => [m.id, m]));
+        return prev.map((m) => backendById.get(m.id) ?? m);
+      });
     } catch {
       // best-effort sync; ignore transient failures
     }
