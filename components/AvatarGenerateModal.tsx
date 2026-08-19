@@ -62,7 +62,7 @@ export default function AvatarGenerateModal({
     setUploading(true);
     const form = new FormData();
     form.append("avatar", file);
-    const res = await apiFetch(`/api/characters/${characterId}/avatar`, { method: "POST", body: form });
+    const res = await apiFetch(`/api/chat/${characterId}/avatar`, { method: "POST", body: form });
     setUploading(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -71,15 +71,15 @@ export default function AvatarGenerateModal({
       return;
     }
     const data = await res.json();
-    setPreview(data.character.avatarUrl);
-    onUpdated(data.character.avatarUrl);
+    setPreview(data.characterOverrides?.avatarUrl ?? data.avatarUrl ?? preview);
+    onUpdated(data.characterOverrides?.avatarUrl ?? data.avatarUrl ?? null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   async function onGenerate() {
     setError("");
     setGenerating(true);
-    const res = await apiFetch(`/api/characters/${characterId}/avatar/generate`, {
+    const res = await apiFetch(`/api/chat/${characterId}/avatar/generate`, {
       method: "POST",
       body: JSON.stringify({ prompt: prompt.trim() || undefined }),
     });
@@ -90,8 +90,8 @@ export default function AvatarGenerateModal({
       return;
     }
     const data = await res.json();
-    setPreview(data.character.avatarUrl);
-    onUpdated(data.character.avatarUrl);
+    setPreview(data.characterOverrides?.avatarUrl ?? data.avatarUrl ?? preview);
+    onUpdated(data.characterOverrides?.avatarUrl ?? data.avatarUrl ?? null);
   }
 
   const busy = uploading || generating;

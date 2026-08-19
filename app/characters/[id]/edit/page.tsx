@@ -25,6 +25,7 @@ type Character = {
   scenePromptTemplate?: string;
   examples?: string;
   tags?: string;
+  ownerId?: string;
 };
 
 const EMOJI_CHOICES = ["🌸", "🦊", "🌙", "⚔️", "🕯️", "🐉", "☕", "🌊"];
@@ -35,6 +36,7 @@ export default function EditCharacterPage() {
   const bgFileInputRef = useRef<HTMLInputElement>(null);
 
   const [character, setCharacter] = useState<Character | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [name, setName] = useState("");
   const [tagline, setTagline] = useState("");
@@ -66,8 +68,13 @@ export default function EditCharacterPage() {
     apiFetch(`/api/characters/${id}`)
       .then(async (r) => (r.ok ? r.json() : Promise.reject()))
       .then((data) => {
+        if (!data.isOwner) {
+          setNotFound(true);
+          return;
+        }
         const c: Character = data.character;
         setCharacter(c);
+        setIsOwner(true);
         setName(c.name);
         setTagline(c.tagline);
         setPersonality(c.personality);
