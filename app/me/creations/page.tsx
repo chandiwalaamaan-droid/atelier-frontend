@@ -30,8 +30,7 @@ export default function MyCreationsPage() {
   useEffect(() => {
     apiFetch("/api/characters")
       .then((r) => (r.ok ? r.json() : { characters: [] }))
-      .then((d) => setCharacters(d.characters ?? []))
-      .catch(() => setCharacters([]));
+      .then((d) => setCharacters(d.characters ?? []));
   }, []);
 
   return (

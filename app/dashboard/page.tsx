@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiFetch, resolveMediaUrl } from "@/lib/api";
@@ -87,11 +87,7 @@ const STARTER_TEMPLATES = [
 export default function DashboardPage() {
   const router = useRouter();
   const [characters, setCharacters] = useState<Character[] | null>(null);
-  // "New character" flow state. "describe" (the idea box) is the primary,
-  // default path per #9 — "manual" (the full field-by-field form) is reached
-  // either by explicitly opting out of drafting, or automatically once a
-  // draft comes back and the user needs to review/edit it.
-  const [mode, setMode] = useState<"closed" | "describe" | "manual">("closed");
+  const [showForm, setShowForm] = useState(false);
   const [displayName, setDisplayName] = useState("");
 
   const [name, setName] = useState("");
@@ -117,7 +113,14 @@ export default function DashboardPage() {
   const [draftError, setDraftError] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
 
-  const loadCharacters = useCallback(async () => {
+  useEffect(() => {
+    apiFetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => setDisplayName(d.user?.displayName ?? ""));
+    loadCharacters();
+  }, []);
+
+  async function loadCharacters() {
     try {
       const res = await apiFetch("/api/characters");
       const data = await res.json().catch(() => ({}));
@@ -129,14 +132,7 @@ export default function DashboardPage() {
     } catch {
       setError("Couldn't reach the server. Please try again.");
     }
-  }, []);
-
-  useEffect(() => {
-    apiFetch("/api/auth/me")
-      .then((r) => r.json())
-      .then((d) => setDisplayName(d.user?.displayName ?? ""));
-    loadCharacters();
-  }, [loadCharacters]);
+  }
 
   async function onUseTemplate(template: (typeof STARTER_TEMPLATES)[number]) {
     if (creatingTemplate) return;
@@ -181,7 +177,7 @@ export default function DashboardPage() {
       setGreeting(data.draft.greeting);
       if (typeof data.draft.roleplayNotes === "string") setRoleplayNotes(data.draft.roleplayNotes);
       setIsExplicit(draftExplicit);
-      setMode("manual");
+      setShowForm(true);
       setIdea("");
       requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
     } catch {
@@ -195,51 +191,46 @@ export default function DashboardPage() {
     e.preventDefault();
     setError("");
     setSaving(true);
-    try {
-      const res = await apiFetch("/api/characters", {
-        method: "POST",
-        body: JSON.stringify({
-          name,
-          tagline,
-          personality,
-          backstory,
-          greeting,
-          avatarEmoji,
-          isExplicit,
-          roleplayNotes: isExplicit ? roleplayNotes : "",
-          avatarPrompt,
-          scenePromptTemplate,
-          examples,
-          tags,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(data.error || "Couldn't create that character.");
-        return;
-      }
-      setName("");
-      setTagline("");
-      setPersonality("");
-      setBackstory("");
-      setGreeting("");
-      setAvatarEmoji("🌸");
-      setIsExplicit(false);
-      setRoleplayNotes("");
-      setAvatarPrompt("");
-      setScenePromptTemplate("");
-      setExamples("[]");
-      setTags("[]");
-      setMode("closed");
-      if (data.character?.id) {
-        router.push(`/characters/${data.character.id}/edit`);
-      } else {
-        await loadCharacters();
-      }
-    } catch {
-      setError("Couldn't reach the server. Please try again.");
-    } finally {
-      setSaving(false);
+    const res = await apiFetch("/api/characters", {
+      method: "POST",
+      body: JSON.stringify({
+        name,
+        tagline,
+        personality,
+        backstory,
+        greeting,
+        avatarEmoji,
+        isExplicit,
+        roleplayNotes: isExplicit ? roleplayNotes : "",
+        avatarPrompt,
+        scenePromptTemplate,
+        examples,
+        tags,
+      }),
+    });
+    setSaving(false);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(data.error || "Couldn't create that character.");
+      return;
+    }
+    setName("");
+    setTagline("");
+    setPersonality("");
+    setBackstory("");
+    setGreeting("");
+    setAvatarEmoji("🌸");
+    setIsExplicit(false);
+    setRoleplayNotes("");
+    setAvatarPrompt("");
+    setScenePromptTemplate("");
+    setExamples("[]");
+    setTags("[]");
+    setShowForm(false);
+    if (data.character?.id) {
+      router.push(`/characters/${data.character.id}/edit`);
+    } else {
+      loadCharacters();
     }
   }
 
@@ -250,17 +241,9 @@ export default function DashboardPage() {
   async function confirmDelete() {
     if (!pendingDeleteId) return;
     setDeleting(true);
-    setError("");
     try {
-      const r = await apiFetch(`/api/characters/${pendingDeleteId}`, { method: "DELETE" });
-      if (!r.ok) {
-        const data = await r.json().catch(() => ({}));
-        setError(data.error || "Couldn't delete that character.");
-        return;
-      }
+      await apiFetch(`/api/characters/${pendingDeleteId}`, { method: "DELETE" });
       await loadCharacters();
-    } catch {
-      setError("Couldn't reach the server. Please try again.");
     } finally {
       setDeleting(false);
       setPendingDeleteId(null);
@@ -285,79 +268,58 @@ export default function DashboardPage() {
             Explore
           </Link>
           <button
-            onClick={() => setMode((m) => (m === "closed" ? "describe" : "closed"))}
+            onClick={() => setShowForm((s) => !s)}
             className="bg-gold text-ink px-5 py-2 rounded-full font-medium hover:brightness-110 focus-ring btn-shine shadow-lg shadow-gold/15"
           >
-            {mode === "closed" ? "+ New character" : "Cancel"}
+            {showForm ? "Cancel" : "+ New character"}
           </button>
         </div>
       </header>
 
-      {mode === "describe" && (
-        <div className="gradient-border rounded-2xl bg-gradient-to-br from-gold/10 to-plum/60 p-6 mb-10 max-w-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 opacity-[0.04]">
-            <div className="w-full h-full rounded-full bg-gold" style={{ filter: "blur(40px)" }} />
-          </div>
-          <div className="relative z-10">
-            <p className="font-display text-lg mb-1">✨ Describe your character</p>
-            <p className="text-sm text-parchment/60 mb-4">
-              One sentence is enough — we'll draft their personality, backstory, and greeting for you to review and
-              tweak before anything is saved.
-            </p>
-            <form onSubmit={onDraft} className="flex flex-col sm:flex-row gap-2">
-              <input
-                autoFocus
-                value={idea}
-                onChange={(e) => setIdea(e.target.value)}
-                placeholder="e.g. a grumpy retired sea captain who runs a bookshop now"
-                className="flex-1 rounded-xl bg-plum-deep/80 border border-parchment/15 px-4 py-2.5 focus-ring placeholder:text-parchment/25"
-                maxLength={300}
-              />
-              <button
-                type="submit"
-                disabled={drafting || !idea.trim()}
-                className="bg-gold text-ink px-5 py-2.5 rounded-full font-medium hover:brightness-110 focus-ring disabled:opacity-50 shrink-0 btn-shine"
-              >
-                {drafting ? "Drafting…" : "Draft it"}
-              </button>
-            </form>
-            <label className="mt-3 flex items-center gap-2 text-sm text-parchment/60 cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={draftExplicit}
-                onChange={(e) => setDraftExplicit(e.target.checked)}
-                className="w-4 h-4 rounded accent-rose cursor-pointer"
-              />
-              <span className="group-hover:text-parchment/80 transition-colors">Draft as explicit/NSFW character</span>
-            </label>
-            {draftError && <p className="mt-3 text-sm text-rose">{draftError}</p>}
-            <button
-              type="button"
-              onClick={() => setMode("manual")}
-              className="mt-4 text-xs text-parchment/45 hover:text-gold transition-colors underline underline-offset-2"
-            >
-              Prefer to build it field-by-field instead? →
-            </button>
-          </div>
+      <div className="gradient-border rounded-2xl bg-gradient-to-br from-gold/10 to-plum/60 p-6 mb-8 max-w-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 opacity-[0.04]">
+          <div className="w-full h-full rounded-full bg-gold" style={{ filter: "blur(40px)" }} />
         </div>
-      )}
-
-      {mode === "manual" && <CharacterImportPanel onImported={loadCharacters} />}
-
-      {mode === "manual" && (
-        <form ref={formRef} onSubmit={onCreate} className="gradient-border rounded-2xl bg-gradient-to-br from-plum/60 to-plum-deep/80 p-8 mb-10 max-w-2xl">
-          <div className="flex items-center justify-between mb-1">
-            <h2 className="font-display text-xl gradient-text">
-              {name || tagline || backstory ? "Review your character" : "Craft a new character"}
-            </h2>
+        <div className="relative z-10">
+          <p className="font-display text-lg mb-1">✨ Quick start</p>
+          <p className="text-sm text-parchment/60 mb-4">
+            Describe a character idea in one sentence — we'll draft their personality, backstory, and greeting for you
+            to review and tweak.
+          </p>
+          <form onSubmit={onDraft} className="flex flex-col sm:flex-row gap-2">
+            <input
+              value={idea}
+              onChange={(e) => setIdea(e.target.value)}
+              placeholder="e.g. a grumpy retired sea captain who runs a bookshop now"
+              className="flex-1 rounded-xl bg-plum-deep/80 border border-parchment/15 px-4 py-2.5 focus-ring placeholder:text-parchment/25"
+              maxLength={300}
+            />
             <button
-              type="button"
-              onClick={() => setMode("describe")}
-              className="text-xs text-parchment/45 hover:text-gold transition-colors underline underline-offset-2 shrink-0"
+              type="submit"
+              disabled={drafting || !idea.trim()}
+              className="bg-gold text-ink px-5 py-2.5 rounded-full font-medium hover:brightness-110 focus-ring disabled:opacity-50 shrink-0 btn-shine"
             >
-              ← Back to quick start
+              {drafting ? "Drafting…" : "Draft it"}
             </button>
-          </div>
+          </form>
+          <label className="mt-3 flex items-center gap-2 text-sm text-parchment/60 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={draftExplicit}
+              onChange={(e) => setDraftExplicit(e.target.checked)}
+              className="w-4 h-4 rounded accent-rose cursor-pointer"
+            />
+            <span className="group-hover:text-parchment/80 transition-colors">Draft as explicit/NSFW character</span>
+          </label>
+          {draftError && <p className="mt-3 text-sm text-rose">{draftError}</p>}
+        </div>
+      </div>
+
+      <CharacterImportPanel onImported={loadCharacters} />
+
+      {showForm && (
+        <form ref={formRef} onSubmit={onCreate} className="gradient-border rounded-2xl bg-gradient-to-br from-plum/60 to-plum-deep/80 p-8 mb-10 max-w-2xl">
+          <h2 className="font-display text-xl mb-1 gradient-text">Craft a new character</h2>
           <p className="text-xs text-parchment/50 mb-4">
             Pick an emoji for now — you'll be able to upload or AI-generate a portrait right after creating.
           </p>
@@ -490,7 +452,6 @@ export default function DashboardPage() {
             value={examples}
             onChange={(e) => setExamples(e.target.value)}
             rows={6}
-            maxLength={12000}
             className="w-full mb-2 rounded-xl bg-plum-deep/80 border border-white/10 px-4 py-2.5 focus-ring text-sm font-mono placeholder:text-parchment/25"
             placeholder={`[` +
               `\n  { "user": "Hi there!", "character": "Hey! *waves energetically*" },` +
@@ -525,7 +486,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {characters !== null && characters.length === 0 && mode === "closed" && (
+      {characters !== null && characters.length === 0 && !showForm && (
         <div className="max-w-2xl">
           <div className="gradient-border rounded-2xl bg-gradient-to-br from-plum/60 to-plum-deep/80 p-8 mb-6 text-center">
             <span className="text-4xl block mb-3 opacity-70">🎭</span>
@@ -534,7 +495,7 @@ export default function DashboardPage() {
               Create your own, or jump straight into a chat with one of these.
             </p>
             <button
-              onClick={() => setMode("describe")}
+              onClick={() => setShowForm(true)}
               className="bg-gold text-ink px-5 py-2 rounded-full font-medium hover:brightness-110 focus-ring btn-shine"
             >
               + New character

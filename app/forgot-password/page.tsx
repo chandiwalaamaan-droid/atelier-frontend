@@ -32,8 +32,8 @@ export default function ForgotPasswordPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center px-6 bg-void relative overflow-hidden">
-      <div className="absolute top-[-20%] left-[-10%] w-[400px] h-[400px] rounded-full opacity-[0.03] pointer-events-none" style={{ background: "radial-gradient(circle, #c9a227 0%, transparent 70%)" }} aria-hidden="true" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[400px] h-[400px] rounded-full opacity-[0.03] pointer-events-none" style={{ background: "radial-gradient(circle, #b5657a 0%, transparent 70%)" }} aria-hidden="true" />
+      <div className="absolute top-[-20%] left-[-10%] w-[400px] h-[400px] rounded-full opacity-[0.03] pointer-events-none" style={{ background: "radial-gradient(circle, #c9a227 0%, transparent 70%)" }} aria-hidden />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[400px] h-[400px] rounded-full opacity-[0.03] pointer-events-none" style={{ background: "radial-gradient(circle, #b5657a 0%, transparent 70%)" }} aria-hidden />
 
       <form onSubmit={onSubmit} className="relative w-full max-w-sm rounded-2xl bg-gradient-to-br from-plum/60 to-plum-deep/80 p-8 border border-white/5 shadow-2xl animate-scale-in">
         <div className="text-center mb-6">

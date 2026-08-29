@@ -28,7 +28,6 @@ export default function PremiumActionButton({
   type = "button",
   disabled,
 }: Props) {
-  const isDisabled = PREMIUM_PAYMENTS_ENABLED ? disabled : true;
   if (PREMIUM_PAYMENTS_ENABLED) {
     return (
       <button type={type} onClick={onClick} disabled={disabled} className={`${VARIANTS[variant]} ${className} rounded-full px-5 py-2.5 focus-ring disabled:opacity-50`}>
@@ -40,7 +39,7 @@ export default function PremiumActionButton({
   return (
     <button
       type="button"
-      disabled={isDisabled}
+      disabled
       title={EARLY_ACCESS_MESSAGE}
       className={`${VARIANTS[variant]} ${className} rounded-full px-5 py-2.5 opacity-60 cursor-not-allowed relative group`}
     >

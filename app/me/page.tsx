@@ -8,6 +8,7 @@ import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import { PremiumLockBadge } from "@/components/PremiumActionButton";
 import { clearAuthCache } from "@/lib/authCache";
+import { clearAuthToken } from "@/lib/authToken";
 
 type UserProfile = {
   id: string;
@@ -59,6 +60,7 @@ export default function MePage() {
   async function logout() {
     await apiFetch("/api/auth/logout", { method: "POST" });
     clearAuthCache();
+    clearAuthToken();
     router.push("/");
     router.refresh();
   }
@@ -72,6 +74,7 @@ export default function MePage() {
         throw new Error(data.error || "Failed to delete account.");
       }
       clearAuthCache();
+      clearAuthToken();
       router.push("/");
       router.refresh();
     } catch (err: any) {
@@ -191,15 +194,16 @@ export default function MePage() {
                 initial
               )}
             </span>
-              <div className="min-w-0 flex-1">
-                <h1 className="font-display text-xl truncate gradient-text">{displayName || "Your profile"}</h1>
-                <p className="text-xs text-parchment/40 truncate">{email}</p>
-                <div className="mt-3 inline-flex items-center gap-2 rounded-xl border border-gold/30 bg-gold/10 px-3 py-1.5">
-                   <span aria-hidden="true" className="text-gold">♛</span>
-                  <span className="text-xs text-parchment/80">Lite</span>
-                  <PremiumLockBadge />
-                </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="font-display text-xl truncate gradient-text">{displayName || "Your profile"}</h1>
+              <p className="text-xs text-parchment/40 truncate">{email}</p>
+              <p className="text-xs text-parchment/45 mt-2">0 followers · 0 interactions</p>
+              <div className="mt-3 inline-flex items-center gap-2 rounded-xl border border-gold/30 bg-gold/10 px-3 py-1.5">
+                <span aria-hidden className="text-gold">♛</span>
+                <span className="text-xs text-parchment/80">Lite</span>
+                <PremiumLockBadge />
               </div>
+            </div>
             <div className="flex flex-col items-end gap-2 shrink-0">
               <button
                 type="button"

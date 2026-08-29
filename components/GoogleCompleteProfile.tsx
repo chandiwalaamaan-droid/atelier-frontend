@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
+import { setAuthToken } from "@/lib/authToken";
 
 /**
  * Shown right after Google Sign-In reports isNewUser: true. Rolichat requires
@@ -43,6 +44,7 @@ export function GoogleCompleteProfile({
         setError(data.error || "Something went wrong.");
         return;
       }
+      setAuthToken(data.token);
       onDone();
     } catch {
       // fetch() itself threw — without this the button was stuck on

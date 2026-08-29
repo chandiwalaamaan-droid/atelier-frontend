@@ -38,7 +38,6 @@ type Character = {
   roleplayNotes?: string;
   examples?: string;
   tags?: string;
-  isOwner?: boolean;
 };
 
 type Message = {
@@ -59,6 +58,15 @@ const CHAT_THEMES: { id: ChatTheme; label: string; emoji: string }[] = [
 ];
 
 const REACTION_EMOJIS = ["❤️", "🔥", "😂", "😮", "😢"];
+
+const SCENARIO_ACTIONS = [
+  { label: "Slap 💥", action: "*slaps your face hard*" },
+  { label: "Punch 👊", action: "*punches your stomach*" },
+  { label: "Hug 🤗", action: "*wraps you in a tight hug*" },
+  { label: "Kiss 💋", action: "*presses a soft kiss against your lips*" },
+  { label: "Tickle �zones", action: "*tickles your sides*" },
+  { label: "Spin 🔄", action: "*spins you around and pins you against the wall*" },
+];
 
 function getChatTheme(): ChatTheme {
   if (typeof window === "undefined") return "midnight";
@@ -175,11 +183,8 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
-  const [chatLoadError, setChatLoadError] = useState("");
   const [notFound, setNotFound] = useState(false);
   const [toast, setToast] = useState("");
-  const [failoverMessageId, setFailoverMessageId] = useState<string | null>(null);
-  const failoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showJump, setShowJump] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
@@ -201,6 +206,7 @@ export default function ChatPage() {
   const [theme, setTheme] = useState<ChatTheme>(getChatTheme);
   const [reactions, setReactions] = useState<Map<string, Reaction[]>>(new Map());
   const [showQuickActions, setShowQuickActions] = useState(false);
+  const [showScenarioActions, setShowScenarioActions] = useState(false);
   const [relationshipLevel, setRelationshipLevel] = useState(0);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -234,7 +240,6 @@ export default function ChatPage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    setChatLoadError("");
     apiFetch(`/api/chat/${characterId}`, { signal: controller.signal })
       .then(async (r) => {
         if (r.status === 401) {
@@ -258,7 +263,6 @@ export default function ChatPage() {
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         console.error("Failed to load chat:", err);
-        setChatLoadError("Couldn't load this conversation. Please check your connection and try again.");
       });
     return () => controller.abort();
   }, [characterId]);
@@ -440,21 +444,9 @@ export default function ChatPage() {
           }
           const ev = seg.value;
           if (ev.type === "failover") {
-            // NVIDIA (first in the backend's fallback chain) times out
-            // mid-stream more often than the others — see the backend's
-            // NVIDIA_TIMEOUT_MS comment — which wipes whatever had already
-            // streamed in and starts the reply over from the next
-            // provider. Silently clearing the bubble back to the plain
-            // "is typing" dots reads as the app glitching or losing what
-            // it had generated; naming the transition here for a brief,
-            // fixed window makes the same reset read as intentional.
             acc = "";
             revealedLen = 0;
-            setFailoverMessageId(assistantId);
-            if (failoverTimerRef.current) clearTimeout(failoverTimerRef.current);
-            failoverTimerRef.current = setTimeout(() => {
-              setFailoverMessageId((cur) => (cur === assistantId ? null : cur));
-            }, 700);
+            showToast("Reconnecting to keep the reply on track…");
           } else if (ev.type === "fatal") {
             const message = typeof ev.message === "string" ? ev.message : "Something went wrong.";
             setError(message);
@@ -490,11 +482,6 @@ export default function ChatPage() {
         cancelAnimationFrame(animFrame);
         animFrame = null;
       }
-      if (failoverTimerRef.current) {
-        clearTimeout(failoverTimerRef.current);
-        failoverTimerRef.current = null;
-      }
-      setFailoverMessageId((cur) => (cur === assistantId ? null : cur));
       setMessages((prev: Message[]) =>
         prev.map((m) => (m.id === assistantId ? { ...m, content: acc } : m))
       );
@@ -557,6 +544,12 @@ export default function ChatPage() {
   async function steerScene(directive: string) {
     if (sendingRef.current || messages.length === 0) return;
     await sendMessage("", directive);
+  }
+
+  async function triggerScenarioAction(actionText: string) {
+    if (sendingRef.current) return;
+    setShowScenarioActions(false);
+    await sendMessage(actionText);
   }
 
   async function retryFailedSend() {
@@ -668,7 +661,7 @@ export default function ChatPage() {
     a.href = url;
     a.download = `${character.name} - Chat Export.txt`;
     a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    URL.revokeObjectURL(url);
   }
 
   async function confirmResetConversation() {
@@ -677,10 +670,6 @@ export default function ChatPage() {
     try {
       const r = await apiFetch(`/api/chat/${characterId}`, { method: "DELETE" });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        setError(data.error || "Couldn't reset the conversation.");
-        return;
-      }
       setMessages([]);
       setRelationshipLevel(typeof data.relationshipLevel === "number" ? data.relationshipLevel : 0);
       setError("");
@@ -704,10 +693,6 @@ export default function ChatPage() {
     try {
       const r = await apiFetch(`/api/chat/${characterId}/messages/${deleteTargetId}`, { method: "DELETE" });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        setError(data.error || "Couldn't delete that message.");
-        return;
-      }
       setMessages((prev) => prev.filter((m) => m.id !== deleteTargetId));
       if (typeof data.relationshipLevel === "number") setRelationshipLevel(data.relationshipLevel);
     } catch {
@@ -793,18 +778,14 @@ export default function ChatPage() {
       return;
     }
 
-    audioEl.pause();
-    setPlayingId(null);
-
     const cached = audioCacheRef.current.get(id);
     if (cached) {
       audioEl.src = cached;
       audioEl.play().catch(() => {
         setVoiceError("Failed to play audio.");
-        setLoadingAudioId(null);
+        setPlayingId(null);
       });
       setPlayingId(id);
-      setLoadingAudioId(null);
       return;
     }
 
@@ -824,11 +805,9 @@ export default function ChatPage() {
       const cache = audioCacheRef.current;
       cache.set(id, url);
       if (cache.size > 20) {
-        const oldest = cache.keys().next().value;
-        if (oldest) {
-          URL.revokeObjectURL(cache.get(oldest)!);
-          cache.delete(oldest);
-        }
+        const oldest = cache.keys().next().value!;
+        URL.revokeObjectURL(cache.get(oldest)!);
+        cache.delete(oldest);
       }
       audioEl.src = url;
       audioEl.play().catch(() => {
@@ -929,27 +908,19 @@ export default function ChatPage() {
     return (
       <RequireAuth>
         <AppShell variant="chat">
-          <main className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
-            {chatLoadError ? (
-              <>
-                <p className="font-display text-xl text-parchment/80 text-center">{chatLoadError}</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setChatLoadError("");
-                    window.location.reload();
-                  }}
-                  className="text-sm bg-gold text-ink px-5 py-2 rounded-full font-medium hover:brightness-110 focus-ring btn-shine"
-                >
-                  Retry
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="w-8 h-8 rounded-full border-2 border-gold/30 border-t-gold animate-spin" />
-                <p className="text-parchment/50 text-sm">Loading conversation…</p>
-              </>
-            )}
+          <main className="flex-1 flex flex-col min-h-0 relative animate-pulse">
+            <header className="flex items-center gap-3 px-6 py-4 border-b border-white/10">
+              <div className="w-6 h-6 rounded bg-white/10" />
+              <div className="w-9 h-9 rounded-full bg-white/10" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-24 rounded bg-white/10" />
+                <div className="h-3 w-40 rounded bg-white/10" />
+              </div>
+            </header>
+            <div className="flex-1 px-6 py-6 space-y-4">
+              <div className="max-w-[85%] sm:max-w-lg h-16 rounded-2xl bg-surface-card" />
+              <div className="max-w-xs h-10 ml-auto rounded-2xl bg-white/5" />
+            </div>
           </main>
         </AppShell>
       </RequireAuth>
@@ -1043,9 +1014,7 @@ export default function ChatPage() {
                         {resetting ? "Clearing…" : "🗑 Clear conversation"}
                       </button>
                       <button onClick={() => { exportChat(); setChatMenuOpen(false); }} className="w-full text-left px-3 py-2 text-xs text-parchment/80 hover:bg-white/5 transition-colors">📤 Export chat</button>
-                      {character.isOwner && (
-                        <Link href={`/characters/${character.id}/edit`} onClick={() => setChatMenuOpen(false)} className="block w-full text-left px-3 py-2 text-xs text-parchment/80 hover:bg-white/5 transition-colors">✏️ Edit character</Link>
-                      )}
+                      <Link href={`/characters/${character.id}/edit`} onClick={() => setChatMenuOpen(false)} className="block w-full text-left px-3 py-2 text-xs text-parchment/80 hover:bg-white/5 transition-colors">✏️ Edit character</Link>
                       <div className="border-t border-parchment/10 my-0.5" />
                       <div className="px-3 py-2">
                         <p className="text-[10px] text-parchment/40 mb-1">Theme</p>
@@ -1087,7 +1056,6 @@ export default function ChatPage() {
             )}
             {messages.map((m: Message, i: number) => {
               const isLastAssistant = m.role === "assistant" && i === messages.length - 1;
-              const isFailingOver = isLastAssistant && failoverMessageId === m.id;
               const isStreamingEmpty = isLastAssistant && sending && !m.content;
               const isEditing = editingId === m.id;
               const msgReactions = reactions.get(m.id) || [];
@@ -1177,14 +1145,7 @@ export default function ChatPage() {
                             : "chat-bubble-assistant rounded-tl-sm"
                         }`}
                       >
-                        {isFailingOver ? (
-                          <div className="typing-indicator-enhanced">
-                            <span className="text-xs text-parchment/60 mr-1">Switching to a faster engine…</span>
-                            <span className="typing-indicator-dot" />
-                            <span className="typing-indicator-dot" />
-                            <span className="typing-indicator-dot" />
-                          </div>
-                        ) : isStreamingEmpty ? (
+                        {isStreamingEmpty ? (
                           <div className="typing-indicator-enhanced">
                             <span className="text-xs text-parchment/60 mr-1">{character.name} is typing</span>
                             <span className="typing-indicator-dot" />
@@ -1346,6 +1307,33 @@ export default function ChatPage() {
             </div>
           )}
 
+          {/* Scenario Actions Bar */}
+          {showScenarioActions && (
+            <div className="px-4 md:px-12 pb-2">
+              <div className="quick-actions-bar max-w-3xl mx-auto">
+                <button
+                  onClick={() => setShowScenarioActions(false)}
+                  className="quick-action-btn"
+                  title="Close scenario actions"
+                >
+                  ✕
+                </button>
+                <div className="w-px h-5 bg-parchment/10" />
+                {SCENARIO_ACTIONS.map((a) => (
+                  <button
+                    key={a.label}
+                    onClick={() => triggerScenarioAction(a.action)}
+                    disabled={sendingRef.current}
+                    className="quick-action-btn text-xs"
+                    title={`Send: ${a.action}`}
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <ConfirmDialog
             open={resetConfirmOpen}
             title={`Clear this conversation with ${character?.name ?? "this character"}?`}
@@ -1482,6 +1470,15 @@ export default function ChatPage() {
                 aria-label="Toggle quick actions"
               >
                 ⚡
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowScenarioActions((s) => !s)}
+                className="text-parchment/50 hover:text-gold focus-ring rounded px-2 py-2.5 transition-colors"
+                title="Scenario actions"
+                aria-label="Toggle scenario actions"
+              >
+                🎭
               </button>
               {sending ? (
                 <button

@@ -82,7 +82,7 @@ export default function WalletPage() {
                 className="rounded-2xl bg-surface-card border border-white/10 p-3 flex flex-col items-center text-center"
               >
                 <span className="text-[10px] text-gold mb-1">Bonus +{pack.bonus}</span>
-                <span className="text-2xl mb-1" aria-hidden="true">
+                <span className="text-2xl mb-1" aria-hidden>
                   ✨
                 </span>
                 <p className="text-lg font-semibold">{pack.sparks.toLocaleString()}</p>

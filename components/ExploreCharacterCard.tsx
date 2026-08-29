@@ -12,9 +12,8 @@ export type ExploreCardCharacter = {
   accentColor: string;
   owner?: { displayName: string } | null;
   tags?: string;
-  isFavorited?: boolean;
-  favoriteCount?: number;
-  viewCount?: number;
+  remixCount?: number;
+  trendScore?: number;
 };
 
 function slugifyAvatar(name: string): string {
@@ -55,20 +54,37 @@ export function inferTags(c: ExploreCardCharacter): string[] {
   return combined.length ? combined.slice(0, 3) : ["Roleplay"];
 }
 
-function formatViewCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
+// Only the creator-supplied tags, no regex inference — used where "premium"
+// or other authoritative filtering needs to trust the tag, not guess it
+// from the tagline/personality text (that guessing is fine for inferTags'
+// display purposes, but not for gating a tab's contents).
+export function explicitTags(c: ExploreCardCharacter): string[] {
+  if (!c.tags) return [];
+  try {
+    const parsed = JSON.parse(c.tags);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((t: any) => typeof t === "string").map((t: string) => t.trim().toLowerCase()).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+export function formatRemixCount(n: number | undefined): string {
+  const count = n ?? 0;
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M remixes`;
+  if (count >= 1_000) return `${(count / 1000).toFixed(1)}K remixes`;
+  if (count === 1) return "1 remix";
+  return `${count} remixes`;
 }
 
 type Props = {
   character: ExploreCardCharacter;
-  onChat: () => void;
+  onRemix: () => void;
+  remixing: boolean;
   onReport: () => void;
-  onToggleFavorite?: () => void;
 };
 
-export default function ExploreCharacterCard({ character: c, onChat, onReport, onToggleFavorite }: Props) {
+export default function ExploreCharacterCard({ character: c, onRemix, remixing, onReport }: Props) {
   let tags: string[];
   try {
     const parsed = c.tags ? JSON.parse(c.tags) : [];
@@ -112,32 +128,16 @@ export default function ExploreCharacterCard({ character: c, onChat, onReport, o
           {c.avatarEmoji}
         </div>
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-        <span className="absolute top-2 left-2 text-[11px] font-medium px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-sm border border-white/5">
-          {formatViewCount(c.viewCount ?? 0)}
-        </span>
-        {onToggleFavorite && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleFavorite();
-            }}
-            aria-pressed={c.isFavorited}
-            aria-label={c.isFavorited ? `Unfavorite ${c.name}` : `Favorite ${c.name}`}
-            className={`absolute bottom-2 right-2 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm border transition-all focus-ring ${
-              c.isFavorited
-                ? "bg-gold/25 border-gold/50 text-gold"
-                : "bg-black/55 border-white/10 text-parchment/70 hover:text-gold hover:border-gold/40"
-            }`}
-          >
-            {c.isFavorited ? "★" : "☆"}
-          </button>
-        )}
-        {c.owner && (
-          <span className="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-sm text-parchment/60 border border-white/5">
-            by {c.owner.displayName}
+        <div className="absolute top-2 left-2 right-2 flex items-center justify-between gap-1.5">
+          <span className="shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-sm border border-white/5">
+            {formatRemixCount(c.remixCount)}
           </span>
-        )}
+          {c.owner && (
+            <span className="min-w-0 truncate text-[10px] px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-sm text-parchment/60 border border-white/5">
+              by {c.owner.displayName}
+            </span>
+          )}
+        </div>
       </div>
       <div className="p-3 flex flex-col flex-1">
         <h3 className="font-semibold text-parchment truncate group-hover:text-gold transition-colors">{c.name}</h3>
@@ -151,10 +151,11 @@ export default function ExploreCharacterCard({ character: c, onChat, onReport, o
         </div>
         <button
           type="button"
-          onClick={onChat}
+          onClick={onRemix}
+          disabled={remixing}
           className="mt-auto w-full py-2 rounded-full bg-gold text-ink text-sm font-medium hover:brightness-110 focus-ring disabled:opacity-50 btn-shine transition-all"
         >
-          {`Chat with ${c.name}`}
+          {remixing ? "Creating your version…" : "Use as Template"}
         </button>
         <button type="button" onClick={onReport} className="mt-2 text-[10px] text-parchment/35 hover:text-rose focus-ring transition-colors">
           Report
