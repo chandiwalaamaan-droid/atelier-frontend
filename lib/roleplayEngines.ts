@@ -39,7 +39,7 @@ export const ROLEPLAY_ENGINES: RoleplayEngine[] = [
     outcomeLabel: "Fast & casual",
     description: "Warm and in the moment — replies like you're texting someone you already know. Quick, natural, with a small action or reaction when it fits.",
     minTier: "free",
-    spiceLevel: "explicit",
+    spiceLevel: "flirty",
     roleplayStyle: "dialogue",
   },
   {
@@ -51,7 +51,7 @@ export const ROLEPLAY_ENGINES: RoleplayEngine[] = [
     tag: "Popular",
     description: "Feels like someone actually listening across the room. Picks up on your mood, your hesitations, the jokes you circle back to. Meets you honestly where things heat up, but stays grounded in what's real between you.",
     minTier: "plus",
-    spiceLevel: "explicit",
+    spiceLevel: "flirty",
     roleplayStyle: "balanced",
   },
   {
@@ -63,7 +63,7 @@ export const ROLEPLAY_ENGINES: RoleplayEngine[] = [
     tag: "Best Seller",
     description: "Notices the small tells — how you bite your lip when nervous, the way your voice drops when you're trying to be casual. Builds tension gradually, references things you said earlier, and lets feelings shift beat by beat.",
     minTier: "ultra",
-    spiceLevel: "explicit",
+    spiceLevel: "spicy",
     roleplayStyle: "narrative",
   },
   {
@@ -86,9 +86,11 @@ export function engineById(id: RoleplayEngineId): RoleplayEngine | null {
 }
 
 export function prefsMatchEngine(prefs: RoleplayPreferences, engine: RoleplayEngine): boolean {
-  const explicitOk = engine.minTier === "free" ? !prefs.explicitMode : prefs.explicitMode;
+  // A named engine matches when the user's spice level and style preference
+  // align with what the engine expects. explicitMode is no longer forced by
+  // engine tier — it's the user's toggle (and the character's isExplicit flag),
+  // so we don't gate on it here.
   return (
-    explicitOk &&
     prefs.spiceLevel === engine.spiceLevel &&
     prefs.roleplayStyle === engine.roleplayStyle
   );
@@ -106,8 +108,10 @@ export function resolveEngineId(prefs: RoleplayPreferences, storedId?: RoleplayE
 }
 
 export function applyEngine(engine: RoleplayEngine): RoleplayPreferences {
+  // Only applies spiceLevel and roleplayStyle from the engine. explicitMode
+  // is left unchanged — it's the user's toggle, not the engine's to set.
   return {
-    explicitMode: engine.minTier !== "free",
+    explicitMode: false,
     spiceLevel: engine.spiceLevel,
     roleplayStyle: engine.roleplayStyle,
   };

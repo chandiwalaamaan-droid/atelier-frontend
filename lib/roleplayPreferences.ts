@@ -30,7 +30,7 @@ function defaultPrefs(characterIsExplicit: boolean): RoleplayPreferences {
   if (!engine) {
     return { ...DEFAULTS, engineId: "custom" };
   }
-  return { ...applyEngine(engine), engineId: engine.id };
+  return { ...applyEngine(engine), explicitMode: characterIsExplicit, engineId: engine.id };
 }
 
 export function loadRoleplayPreferences(characterId: string, characterIsExplicit: boolean): RoleplayPreferences {
