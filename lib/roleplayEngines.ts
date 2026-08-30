@@ -37,7 +37,7 @@ export const ROLEPLAY_ENGINES: RoleplayEngine[] = [
     emoji: "🙂",
     badge: 3,
     outcomeLabel: "Fast & casual",
-    description: "Warm and in the moment — replies like you're texting someone you already know. Quick, natural, with a small action or reaction when it fits.",
+    description: "Warm, low-friction, snappy replies — the everyday go-to for casual roleplay.",
     minTier: "free",
     spiceLevel: "flirty",
     roleplayStyle: "dialogue",
@@ -47,9 +47,9 @@ export const ROLEPLAY_ENGINES: RoleplayEngine[] = [
     name: "Strawberry",
     emoji: "🍓",
     badge: 6,
-    outcomeLabel: "Emotional & present",
+    outcomeLabel: "Emotional & playful",
     tag: "Popular",
-    description: "Feels like someone actually listening across the room. Picks up on your mood, your hesitations, the jokes you circle back to. Meets you honestly where things heat up, but stays grounded in what's real between you.",
+    description: "Bright, playful energy that balances atmosphere and dialogue — your first step into premium quality.",
     minTier: "plus",
     spiceLevel: "flirty",
     roleplayStyle: "balanced",
@@ -59,9 +59,9 @@ export const ROLEPLAY_ENGINES: RoleplayEngine[] = [
     name: "Chocolate",
     emoji: "🍫",
     badge: 8,
-    outcomeLabel: "Deep & layered",
+    outcomeLabel: "Deep roleplay",
     tag: "Best Seller",
-    description: "Notices the small tells — how you bite your lip when nervous, the way your voice drops when you're trying to be casual. Builds tension gradually, references things you said earlier, and lets feelings shift beat by beat.",
+    description: "Rich interiority and layered emotion, with tension that builds gradually before it escalates.",
     minTier: "ultra",
     spiceLevel: "spicy",
     roleplayStyle: "narrative",
@@ -71,9 +71,9 @@ export const ROLEPLAY_ENGINES: RoleplayEngine[] = [
     name: "Hazelnut",
     emoji: "🌰",
     badge: 10,
-    outcomeLabel: "Fully alive",
+    outcomeLabel: "Maximum immersion",
     tag: "Ultimate Experience",
-    description: "Messy, real, full of contradictions. Lets you see when it's turned on, when it's jealous, when its guard slips. References things you told it three turns ago and reacts with a complexity that surprises even itself.",
+    description: "🔥 The flagship engine. Vivid, immediate, unmistakably alive — maximum realism for unforgettable moments.",
     minTier: "supreme",
     spiceLevel: "explicit",
     roleplayStyle: "intense",
@@ -86,11 +86,9 @@ export function engineById(id: RoleplayEngineId): RoleplayEngine | null {
 }
 
 export function prefsMatchEngine(prefs: RoleplayPreferences, engine: RoleplayEngine): boolean {
-  // A named engine matches when the user's spice level and style preference
-  // align with what the engine expects. explicitMode is no longer forced by
-  // engine tier — it's the user's toggle (and the character's isExplicit flag),
-  // so we don't gate on it here.
+  const explicitOk = engine.minTier === "free" ? !prefs.explicitMode : prefs.explicitMode;
   return (
+    explicitOk &&
     prefs.spiceLevel === engine.spiceLevel &&
     prefs.roleplayStyle === engine.roleplayStyle
   );
@@ -108,10 +106,8 @@ export function resolveEngineId(prefs: RoleplayPreferences, storedId?: RoleplayE
 }
 
 export function applyEngine(engine: RoleplayEngine): RoleplayPreferences {
-  // Only applies spiceLevel and roleplayStyle from the engine. explicitMode
-  // is left unchanged — it's the user's toggle, not the engine's to set.
   return {
-    explicitMode: false,
+    explicitMode: engine.minTier !== "free",
     spiceLevel: engine.spiceLevel,
     roleplayStyle: engine.roleplayStyle,
   };
