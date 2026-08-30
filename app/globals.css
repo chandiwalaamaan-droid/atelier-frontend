@@ -535,6 +535,11 @@ body.chat-theme-ember {
   transform: scale(1.1);
 }
 
+.reaction-btn.reacting:hover {
+  /* Don't stack hover scale on top of the pop animation */
+  transform: none;
+}
+
 .reaction-btn.reacted {
   background: rgba(201, 162, 39, 0.15);
   border-color: rgba(201, 162, 39, 0.3);
