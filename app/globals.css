@@ -517,8 +517,8 @@ body.chat-theme-ember {
 .reaction-btn {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px 6px;
+  gap: 3px;
+  padding: 3px 8px;
   border-radius: 999px;
   font-size: 12px;
   background: rgba(246, 239, 227, 0.05);
@@ -639,6 +639,7 @@ body.chat-theme-ember {
   backdrop-filter: blur(12px);
   border: 1px solid rgba(246, 239, 227, 0.06);
   transition: all 0.3s ease;
+  margin-bottom: 8px;
 }
 
 .quick-action-btn {
@@ -664,6 +665,39 @@ body.chat-theme-ember {
 
 .quick-action-btn:active {
   transform: translateY(0) scale(0.95);
+}
+
+.scenario-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(246, 239, 227, 0.06);
+  border: 1px solid rgba(246, 239, 227, 0.1);
+  color: rgba(246, 239, 227, 0.7);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 12px;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.scenario-action-btn:hover:not(:disabled) {
+  background: rgba(246, 239, 227, 0.12);
+  border-color: rgba(246, 239, 227, 0.25);
+  color: rgba(246, 239, 227, 0.95);
+  transform: translateY(-1px);
+}
+
+.scenario-action-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+
+.scenario-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* ===== Message Slide-in Animation ===== */

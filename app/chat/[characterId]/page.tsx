@@ -64,7 +64,7 @@ const SCENARIO_ACTIONS = [
   { label: "Punch 👊", action: "*punches your stomach*" },
   { label: "Hug 🤗", action: "*wraps you in a tight hug*" },
   { label: "Kiss 💋", action: "*presses a soft kiss against your lips*" },
-  { label: "Tickle �zones", action: "*tickles your sides*" },
+  { label: "Tickle 😂", action: "*tickles your sides*" },
   { label: "Spin 🔄", action: "*spins you around and pins you against the wall*" },
 ];
 
@@ -1324,7 +1324,7 @@ export default function ChatPage() {
                     key={a.label}
                     onClick={() => triggerScenarioAction(a.action)}
                     disabled={sendingRef.current}
-                    className="quick-action-btn text-xs"
+                    className="scenario-action-btn"
                     title={`Send: ${a.action}`}
                   >
                     {a.label}
@@ -1432,7 +1432,7 @@ export default function ChatPage() {
           )}
 
           {error && (
-            <div className="px-4 sm:px-6 py-2 flex items-center gap-3 text-sm">
+            <div className="px-4 sm:px-6 py-2 mb-1 flex items-center gap-3 text-sm">
               <p className="text-rose">{error}</p>
               {lastActionRef.current && (
                 <button
