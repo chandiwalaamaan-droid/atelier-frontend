@@ -28,9 +28,12 @@ function defaultPrefs(characterIsExplicit: boolean): RoleplayPreferences {
     characterIsExplicit ? e.id === "strawberry" : e.id === "vanilla"
   );
   if (!engine) {
-    return { ...DEFAULTS, engineId: "custom" };
+    return { ...DEFAULTS, explicitMode: characterIsExplicit, engineId: "custom" };
   }
-  return { ...applyEngine(engine), engineId: engine.id };
+  // For 18+ characters, default explicitMode to true so the explicit-capable
+  // provider chain (Groq → SambaNova → Cloudflare → NVIDIA) is used right away.
+  // The user can toggle it off if they want a character to play coy.
+  return { ...applyEngine(engine), explicitMode: characterIsExplicit, engineId: engine.id };
 }
 
 export function loadRoleplayPreferences(characterId: string, characterIsExplicit: boolean): RoleplayPreferences {

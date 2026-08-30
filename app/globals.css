@@ -645,6 +645,14 @@ body.chat-theme-ember {
   border: 1px solid rgba(246, 239, 227, 0.06);
   transition: all 0.3s ease;
   margin-bottom: 8px;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.quick-actions-bar::-webkit-scrollbar {
+  display: none;
 }
 
 .quick-action-btn {
@@ -660,6 +668,7 @@ body.chat-theme-ember {
   cursor: pointer;
   transition: all 0.2s ease;
   font-size: 14px;
+  flex-shrink: 0;
 }
 
 .quick-action-btn:hover {
@@ -687,6 +696,7 @@ body.chat-theme-ember {
   font-size: 12px;
   white-space: nowrap;
   line-height: 1.4;
+  flex-shrink: 0;
 }
 
 .scenario-action-btn:hover:not(:disabled) {

@@ -297,7 +297,7 @@ export default function EditCharacterPage() {
           </div>
 
           <p className="text-sm text-parchment/70 mt-5 mb-2">Or pick an emoji fallback</p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {EMOJI_CHOICES.map((emoji) => (
               <button
                 type="button"
