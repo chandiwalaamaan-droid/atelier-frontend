@@ -33,7 +33,7 @@ function defaultPrefs(characterIsExplicit: boolean): RoleplayPreferences {
   // For 18+ characters, default explicitMode to true so the explicit-capable
   // provider chain (Groq → SambaNova → Cloudflare → NVIDIA) is used right away.
   // The user can toggle it off if they want a character to play coy.
-  return { ...applyEngine(engine), explicitMode: characterIsExplicit, engineId: engine.id };
+  return { ...applyEngine(engine, DEFAULTS), explicitMode: characterIsExplicit, engineId: engine.id };
 }
 
 export function loadRoleplayPreferences(characterId: string, characterIsExplicit: boolean): RoleplayPreferences {

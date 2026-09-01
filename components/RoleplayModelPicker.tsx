@@ -197,7 +197,7 @@ export default function RoleplayModelPicker({
   if (!open) return null;
 
   function selectEngine(engine: RoleplayEngine) {
-    const next = applyEngine(engine);
+    const next = applyEngine(engine, prefs);
     onApply(next, engine.id);
     setFineTuneEngineId(engine.id);
   }

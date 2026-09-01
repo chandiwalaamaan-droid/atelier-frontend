@@ -107,11 +107,12 @@ export function resolveEngineId(prefs: RoleplayPreferences, storedId?: RoleplayE
   return "custom";
 }
 
-export function applyEngine(engine: RoleplayEngine): RoleplayPreferences {
+export function applyEngine(engine: RoleplayEngine, prefs: RoleplayPreferences): RoleplayPreferences {
   // Only applies spiceLevel and roleplayStyle from the engine. explicitMode
   // is left unchanged — it's the user's toggle, not the engine's to set.
   return {
-    explicitMode: false,
+    ...prefs,
+    explicitMode: prefs.explicitMode,
     spiceLevel: engine.spiceLevel,
     roleplayStyle: engine.roleplayStyle,
   };
