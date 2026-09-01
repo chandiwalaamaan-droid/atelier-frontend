@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("theme") || "light");</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/assets/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<title>Application Tracker — ATS Resume Checker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-WS9CH9BESV"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-WS9CH9BESV');
+  </script>
+</head>
+
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <a class="logo" href="index.html"><span class="logo-icon" aria-hidden="true"><svg viewBox="0 0 64 64" width="26" height="26" fill="none"><rect x="2" y="2" width="60" height="60" rx="16" fill="#24399C"/><path d="M24 19 L18.5 19 L18.5 45 L24 45" stroke="#F7F8FB" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M40 19 L45.5 19 L45.5 45 L40 45" stroke="#F7F8FB" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M24.5 33.5 L29.5 39 L40 25.5" stroke="#35D399" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="logo-accent">ATS</span> Resume Checker</a>
+    <nav class="primary">
+      <div class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="features.html">Features</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="contact.html">Contact</a>
+      </div>
+      <span id="nav-auth-slot"></span>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap app-shell">
+
+  <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:1rem; flex-wrap:wrap; margin-bottom:1.4rem;">
+    <div>
+      <h1 style="margin:0 0 0.3rem;">Application Tracker</h1>
+      <p style="color:var(--ink-soft); margin:0;">Keep every application, its status, and the resume version you used, in one place.</p>
+    </div>
+    <button class="btn btn-primary" id="add-application-btn">+ Add application</button>
+  </div>
+
+  <div id="limit-banner" style="display:none;"></div>
+
+  <div id="reminders-banner" style="display:none;"></div>
+
+  <div class="result-card" id="outcome-stats-card" style="display:none;">
+    <div class="stat-card-head"><h4>Score vs. response rate</h4></div>
+    <p class="stat-line" id="outcome-stats-note" style="margin-top:0;"></p>
+    <div id="outcome-stats-body"></div>
+  </div>
+
+  <div class="tracker-stats" id="tracker-stats"></div>
+
+  <div class="tracker-toolbar">
+    <div class="tracker-filters" id="tracker-filters"></div>
+  </div>
+
+  <div id="applications-list">
+    <div class="tracker-empty">Loading…</div>
+  </div>
+</div>
+
+<!-- Add / edit modal -->
+<div id="app-modal-backdrop" style="display:none; position:fixed; inset:0; background:rgba(19,24,43,0.45); z-index:50; align-items:center; justify-content:center; padding:1rem;">
+  <div class="result-card" style="max-width:440px; width:100%; margin:0;">
+    <h3 id="modal-title" style="margin-top:0;">Add application</h3>
+    <form id="app-form">
+      <input type="hidden" id="app-id">
+      <input type="hidden" id="app-resume-score">
+      <div class="field">
+        <label for="app-company">Company</label>
+        <input type="text" id="app-company" required placeholder="e.g. Deloitte">
+      </div>
+      <div class="field">
+        <label for="app-role">Role</label>
+        <input type="text" id="app-role" required placeholder="e.g. Data Analyst">
+      </div>
+      <div class="field">
+        <label for="app-status">Status</label>
+        <select id="app-status" class="status-select" style="width:100%; padding:0.55rem 0.7rem;">
+          <option value="saved">Saved</option>
+          <option value="applied">Applied</option>
+          <option value="interviewing">Interviewing</option>
+          <option value="offer">Offer</option>
+          <option value="rejected">Rejected</option>
+          <option value="withdrawn">Withdrawn</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="app-date">Applied date (optional)</label>
+        <input type="date" id="app-date">
+      </div>
+      <div class="field">
+        <label for="app-interview-date">Interview date (optional)</label>
+        <input type="date" id="app-interview-date">
+      </div>
+      <div class="field">
+        <label for="app-followup-date">Follow-up reminder (optional)</label>
+        <input type="date" id="app-followup-date">
+      </div>
+      <div class="field">
+        <label for="app-salary">Salary (optional)</label>
+        <input type="text" id="app-salary" placeholder="e.g. ₹8-10 LPA">
+      </div>
+      <div class="field">
+        <label for="app-recruiter">Recruiter / contact (optional)</label>
+        <input type="text" id="app-recruiter" placeholder="e.g. Priya Sharma, priya@company.com">
+      </div>
+      <div class="field">
+        <label for="app-url">Job posting link (optional)</label>
+        <input type="text" id="app-url" placeholder="https://…">
+      </div>
+      <div class="field">
+        <label for="app-notes">Notes (optional)</label>
+        <textarea id="app-notes" rows="3" placeholder="Referral, recruiter contact, follow-up date…"></textarea>
+      </div>
+      <div class="form-error" id="modal-error" style="margin-bottom:0.8rem;"></div>
+      <div style="display:flex; gap:0.6rem;">
+        <button type="submit" class="btn btn-primary" id="modal-save-btn" style="flex:1;">Save</button>
+        <button type="button" class="btn btn-ghost" id="modal-cancel-btn">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="assets/auth.js"></script>
+<script>
+if (!Auth.isLoggedIn()) window.location.href = "login.html";
+
+const STATUS_LABELS = {
+  saved: "Saved", applied: "Applied", interviewing: "Interviewing",
+  offer: "Offer", rejected: "Rejected", withdrawn: "Withdrawn",
+};
+const STATUS_ORDER = ["saved", "applied", "interviewing", "offer", "rejected", "withdrawn"];
+
+let allApplications = [];
+let activeFilter = "all";
+
+function escapeHtml(s) {
+  return (s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+async function loadApplications() {
+  try {
+    const data = await apiFetch("/api/applications");
+    allApplications = data.applications;
+    renderLimitBanner(data);
+    renderStats();
+    renderReminders();
+    renderFilters();
+    renderList();
+  } catch (err) {
+    document.getElementById("applications-list").innerHTML =
+      `<div class="tracker-empty">Couldn't load your applications — ${escapeHtml(err.message)}</div>`;
+  }
+  renderOutcomeStats();
+}
+
+// Minimum answered (score + heard-back) applications before we show the
+// correlation card at all -- below this, a "response rate" is just noise
+// (e.g. 1/1 = "100%") and would be actively misleading.
+const MIN_ANSWERED_FOR_STATS = 5;
+
+async function renderOutcomeStats() {
+  const card = document.getElementById("outcome-stats-card");
+  try {
+    const stats = await apiFetch("/api/applications/outcome-stats");
+    if (stats.total_answered < MIN_ANSWERED_FOR_STATS) {
+      card.style.display = "none";
+      return;
+    }
+    card.style.display = "block";
+    document.getElementById("outcome-stats-note").textContent =
+      `Based on ${stats.total_answered} application${stats.total_answered === 1 ? "" : "s"} where you've logged both a resume score and whether the company responded.`;
+
+    document.getElementById("outcome-stats-body").innerHTML = stats.buckets.map(b => `
+      <div class="mini-stat">
+        <span>Score ${b.label}${b.total ? ` (${b.total})` : ""}</span>
+        <span>${b.response_rate === null ? "—" : `${b.response_rate}% heard back`}</span>
+      </div>`).join("");
+  } catch (e) {
+    card.style.display = "none";
+  }
+}
+
+function renderLimitBanner(data) {
+  const banner = document.getElementById("limit-banner");
+  if (data.limit !== null) {
+    banner.style.display = "block";
+    banner.innerHTML = `
+      <div class="tracker-limit-banner">
+        <span>${data.total}/${data.limit} tracked on the Free plan${data.limit_reached ? " — you've hit the limit." : "."}</span>
+        <a class="btn btn-ghost btn-sm" href="pricing.html">Upgrade for unlimited</a>
+      </div>`;
+  } else {
+    banner.style.display = "none";
+  }
+}
+
+function isFollowUpDue(dateStr) {
+  if (!dateStr) return false;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const due = new Date(dateStr + "T00:00:00");
+  return due <= today;
+}
+
+// Only surface reminders for applications still in an "open" state -- no
+// point nagging about a follow-up on something already rejected/withdrawn.
+const OPEN_STATUSES = new Set(["saved", "applied", "interviewing"]);
+
+function renderReminders() {
+  const banner = document.getElementById("reminders-banner");
+  const due = allApplications
+    .filter(a => OPEN_STATUSES.has(a.status) && isFollowUpDue(a.follow_up_date))
+    .sort((a, b) => a.follow_up_date.localeCompare(b.follow_up_date));
+
+  if (due.length === 0) {
+    banner.style.display = "none";
+    return;
+  }
+
+  banner.style.display = "block";
+  banner.innerHTML = `
+    <div class="tracker-limit-banner">
+      <span>⏰ ${due.length} follow-up${due.length === 1 ? "" : "s"} due: ${due.map(a => `${escapeHtml(a.company)} (${escapeHtml(a.role)})`).join(", ")}</span>
+    </div>`;
+}
+
+function renderStats() {
+  const counts = {};
+  STATUS_ORDER.forEach(s => counts[s] = 0);
+  allApplications.forEach(a => counts[a.status] = (counts[a.status] || 0) + 1);
+
+  document.getElementById("tracker-stats").innerHTML = STATUS_ORDER.map(s => `
+    <div class="tracker-stat">
+      <span class="tracker-stat-count">${counts[s]}</span>
+      <span class="tracker-stat-label">${STATUS_LABELS[s]}</span>
+    </div>`).join("");
+}
+
+function renderFilters() {
+  const filters = ["all", ...STATUS_ORDER];
+  document.getElementById("tracker-filters").innerHTML = filters.map(f => `
+    <button type="button" class="tracker-filter-btn ${f === activeFilter ? "active" : ""}" data-filter="${f}">
+      ${f === "all" ? "All" : STATUS_LABELS[f]}
+    </button>`).join("");
+
+  document.querySelectorAll(".tracker-filter-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      activeFilter = btn.dataset.filter;
+      renderFilters();
+      renderList();
+    });
+  });
+}
+
+function renderList() {
+  const list = document.getElementById("applications-list");
+  const rows = activeFilter === "all" ? allApplications : allApplications.filter(a => a.status === activeFilter);
+
+  if (rows.length === 0) {
+    list.innerHTML = `<div class="tracker-empty">
+      ${allApplications.length === 0
+        ? "No applications tracked yet. Add one after your next analysis, or use the button above."
+        : "Nothing with this status yet."}
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = rows.map(a => `
+    <div class="application-card" data-id="${a.id}">
+      <div class="application-card-head">
+        <div>
+          <div class="application-role">${escapeHtml(a.role)}</div>
+          <div class="application-company">${escapeHtml(a.company)}</div>
+        </div>
+        <span class="status-badge status-${a.status}">${STATUS_LABELS[a.status]}</span>
+      </div>
+      <div class="application-meta">
+        ${a.applied_date ? `<span>Applied ${escapeHtml(a.applied_date)}</span>` : ""}
+        ${a.interview_date ? `<span>Interview ${escapeHtml(a.interview_date)}</span>` : ""}
+        ${a.salary ? `<span>${escapeHtml(a.salary)}</span>` : ""}
+        ${a.recruiter ? `<span>${escapeHtml(a.recruiter)}</span>` : ""}
+        ${a.resume_score != null ? `<span>Resume score: ${a.resume_score}</span>` : ""}
+        ${a.job_url ? `<a href="${escapeHtml(a.job_url)}" target="_blank" rel="noopener">Job posting ↗</a>` : ""}
+      </div>
+      ${a.follow_up_date ? `<div class="tracker-followup ${isFollowUpDue(a.follow_up_date) ? "due" : ""}">${isFollowUpDue(a.follow_up_date) ? "⏰ Follow up" : "Follow-up reminder"}: ${escapeHtml(a.follow_up_date)}</div>` : ""}
+      ${a.notes ? `<div class="application-notes">${escapeHtml(a.notes)}</div>` : ""}
+      <div class="application-actions">
+        <select class="status-select" data-action="status" data-id="${a.id}">
+          ${STATUS_ORDER.map(s => `<option value="${s}" ${s === a.status ? "selected" : ""}>${STATUS_LABELS[s]}</option>`).join("")}
+        </select>
+        <select class="status-select" data-action="response" data-id="${a.id}" title="Did this company respond at all?">
+          <option value="" ${a.got_response === null ? "selected" : ""}>Heard back? —</option>
+          <option value="true" ${a.got_response === true ? "selected" : ""}>Heard back: Yes</option>
+          <option value="false" ${a.got_response === false ? "selected" : ""}>Heard back: No (ghosted)</option>
+        </select>
+        <button type="button" class="btn btn-ghost btn-sm" data-action="edit" data-id="${a.id}">Edit</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-action="delete" data-id="${a.id}">Delete</button>
+      </div>
+    </div>`).join("");
+
+  list.querySelectorAll('[data-action="status"]').forEach(sel => {
+    sel.addEventListener("change", async () => {
+      try {
+        await apiFetch(`/api/applications/${sel.dataset.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: sel.value }),
+        });
+        await loadApplications();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  });
+
+  list.querySelectorAll('[data-action="response"]').forEach(sel => {
+    sel.addEventListener("change", async () => {
+      // "" (unanswered) -> null, so this stays undo-able rather than a one-way flag.
+      const value = sel.value === "" ? null : sel.value === "true";
+      try {
+        await apiFetch(`/api/applications/${sel.dataset.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ got_response: value }),
+        });
+        await loadApplications();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  });
+
+  list.querySelectorAll('[data-action="edit"]').forEach(btn => {
+    btn.addEventListener("click", () => openModal(allApplications.find(a => a.id == btn.dataset.id)));
+  });
+
+  list.querySelectorAll('[data-action="delete"]').forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Delete this application? This can't be undone.")) return;
+      try {
+        await apiFetch(`/api/applications/${btn.dataset.id}`, { method: "DELETE" });
+        await loadApplications();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Add / edit modal
+// ---------------------------------------------------------------------------
+
+const modalBackdrop = document.getElementById("app-modal-backdrop");
+const appForm = document.getElementById("app-form");
+
+function openModal(existing) {
+  const errBox = document.getElementById("modal-error");
+  errBox.textContent = "";
+  errBox.classList.remove("show");
+  document.getElementById("modal-title").textContent = existing ? "Edit application" : "Add application";
+  document.getElementById("app-id").value = existing ? existing.id : "";
+  document.getElementById("app-resume-score").value = existing ? (existing.resume_score ?? "") : "";
+  document.getElementById("app-company").value = existing ? existing.company : "";
+  document.getElementById("app-role").value = existing ? existing.role : "";
+  document.getElementById("app-status").value = existing ? existing.status : "saved";
+  document.getElementById("app-date").value = existing ? (existing.applied_date || "") : "";
+  document.getElementById("app-interview-date").value = existing ? (existing.interview_date || "") : "";
+  document.getElementById("app-followup-date").value = existing ? (existing.follow_up_date || "") : "";
+  document.getElementById("app-salary").value = existing ? (existing.salary || "") : "";
+  document.getElementById("app-recruiter").value = existing ? (existing.recruiter || "") : "";
+  document.getElementById("app-url").value = existing ? (existing.job_url || "") : "";
+  document.getElementById("app-notes").value = existing ? (existing.notes || "") : "";
+  modalBackdrop.style.display = "flex";
+  document.getElementById("app-company").focus();
+}
+
+function closeModal() {
+  modalBackdrop.style.display = "none";
+}
+
+document.getElementById("add-application-btn").addEventListener("click", () => openModal(null));
+document.getElementById("modal-cancel-btn").addEventListener("click", closeModal);
+modalBackdrop.addEventListener("click", (e) => { if (e.target === modalBackdrop) closeModal(); });
+
+appForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const id = document.getElementById("app-id").value;
+  const payload = {
+    company: document.getElementById("app-company").value.trim(),
+    role: document.getElementById("app-role").value.trim(),
+    status: document.getElementById("app-status").value,
+    applied_date: document.getElementById("app-date").value || null,
+    interview_date: document.getElementById("app-interview-date").value || null,
+    follow_up_date: document.getElementById("app-followup-date").value || null,
+    salary: document.getElementById("app-salary").value.trim() || null,
+    recruiter: document.getElementById("app-recruiter").value.trim() || null,
+    job_url: document.getElementById("app-url").value.trim() || null,
+    notes: document.getElementById("app-notes").value.trim() || null,
+    resume_score: document.getElementById("app-resume-score").value
+      ? Number(document.getElementById("app-resume-score").value) : null,
+  };
+
+  const saveBtn = document.getElementById("modal-save-btn");
+  saveBtn.disabled = true;
+  saveBtn.textContent = "Saving…";
+
+  try {
+    if (id) {
+      await apiFetch(`/api/applications/${id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      });
+    } else {
+      await apiFetch("/api/applications", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      });
+    }
+    closeModal();
+    await loadApplications();
+  } catch (err) {
+    const errBox = document.getElementById("modal-error");
+    errBox.textContent = err.message;
+    errBox.classList.add("show");
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Save";
+  }
+});
+
+function consumePendingEntry() {
+  const raw = sessionStorage.getItem("pending_tracker_entry");
+  if (!raw) return;
+  sessionStorage.removeItem("pending_tracker_entry");
+  try {
+    const pending = JSON.parse(raw);
+    openModal(null);
+    if (pending.role) document.getElementById("app-role").value = pending.role;
+    if (pending.resume_score != null) document.getElementById("app-resume-score").value = pending.resume_score;
+  } catch (e) {
+    // malformed handoff payload -- ignore
+  }
+}
+
+loadApplications();
+consumePendingEntry();
+</script>
+</body>
+</html>

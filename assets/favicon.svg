@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="#24399C"/>
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#logoSheen)" fill-opacity="0.5"/>
+  <path d="M24 19 L18.5 19 L18.5 45 L24 45" stroke="#F7F8FB" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M40 19 L45.5 19 L45.5 45 L40 45" stroke="#F7F8FB" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M24.5 33.5 L29.5 39 L40 25.5" stroke="#35D399" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <defs>
+    <linearGradient id="logoSheen" x1="2" y1="2" x2="62" y2="62" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7C93FF" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#24399C" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+</svg>
