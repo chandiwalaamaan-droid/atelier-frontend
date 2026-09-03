@@ -5,27 +5,18 @@ import { applyEngine, resolveEngineId, ROLEPLAY_ENGINES } from "./roleplayEngine
 
 export type SpiceLevel = "flirty" | "spicy" | "explicit";
 export type RoleplayStyle = "balanced" | "narrative" | "dialogue" | "slow_burn" | "intense";
-export type ChatLanguage = "english" | "hinglish";
 
 export type RoleplayPreferences = {
   explicitMode: boolean;
   spiceLevel: SpiceLevel;
   roleplayStyle: RoleplayStyle;
   engineId?: RoleplayEngineId;
-  /** Per-chat language toggle — independent of engine/spice/style. */
-  language: ChatLanguage;
 };
 
 const DEFAULTS: RoleplayPreferences = {
   explicitMode: false,
   spiceLevel: "spicy",
   roleplayStyle: "balanced",
-  language: "english",
-};
-
-export const LANGUAGE_LABELS: Record<ChatLanguage, string> = {
-  english: "English",
-  hinglish: "Hinglish",
 };
 
 function storageKey(characterId: string) {
@@ -67,14 +58,12 @@ export function loadRoleplayPreferences(characterId: string, characterIsExplicit
       parsed.roleplayStyle === "intense"
         ? parsed.roleplayStyle
         : DEFAULTS.roleplayStyle;
-    const language: ChatLanguage = parsed.language === "hinglish" ? "hinglish" : DEFAULTS.language;
     return {
       explicitMode: parsed.explicitMode === true,
       spiceLevel,
       roleplayStyle,
-      language,
       engineId: resolveEngineId(
-        { explicitMode: parsed.explicitMode === true, spiceLevel, roleplayStyle, language },
+        { explicitMode: parsed.explicitMode === true, spiceLevel, roleplayStyle },
         parsed.engineId
       ),
     };

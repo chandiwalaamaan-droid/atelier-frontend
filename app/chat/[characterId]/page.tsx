@@ -92,7 +92,6 @@ function buildChatBody(
     ...(engineSelected || prefs.explicitMode
       ? { spiceLevel: prefs.spiceLevel, roleplayStyle: prefs.roleplayStyle }
       : {}),
-    ...(prefs.language === "hinglish" ? { language: prefs.language } : {}),
   });
 }
 

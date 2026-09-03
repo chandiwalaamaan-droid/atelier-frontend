@@ -5,12 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import {
   SPICE_LEVEL_LABELS,
   ROLEPLAY_STYLE_LABELS,
-  LANGUAGE_LABELS,
   SCENE_STEERS,
   type RoleplayPreferences,
   type RoleplayStyle,
   type SpiceLevel,
-  type ChatLanguage,
 } from "@/lib/roleplayPreferences";
 import {
   ROLEPLAY_ENGINES,
@@ -240,26 +238,6 @@ export default function RoleplayModelPicker({
             <div>
               <p className="font-medium text-parchment mb-0.5">All engines included — free to use</p>
               <p className="text-parchment/60">Higher badges = richer, more immersive experiences.</p>
-            </div>
-          </div>
-
-          <div className="mt-3">
-            <p className="text-[11px] text-parchment/45 mb-1.5 font-medium uppercase tracking-wider">Language</p>
-            <div className="flex gap-1.5">
-              {(Object.keys(LANGUAGE_LABELS) as ChatLanguage[]).map((lang) => (
-                <button
-                  key={lang}
-                  type="button"
-                  onClick={() => onApply({ ...prefs, language: lang }, engineId)}
-                  className={`text-xs rounded-full px-2.5 py-1 border focus-ring transition-all ${
-                    prefs.language === lang
-                      ? "bg-gold/15 border-gold/50 text-parchment shadow-md shadow-gold/10"
-                      : "border-parchment/15 text-parchment/60 hover:border-gold/35 hover:bg-gold/5"
-                  }`}
-                >
-                  {LANGUAGE_LABELS[lang]}
-                </button>
-              ))}
             </div>
           </div>
         </header>
