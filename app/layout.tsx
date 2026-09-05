@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import Script from "next/script";
+import PwaRegister from "@/components/PwaRegister";
 import "./globals.css";
 
 const GA_MEASUREMENT_ID = "G-CZH3JSJ6Y0";
@@ -21,6 +22,19 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Rolichat — craft a companion",
   description: "Create custom AI characters and talk with them.",
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Rolichat",
+  },
 };
 
 // Without this, mobile browsers (Chrome on Android in particular) overlay
@@ -31,10 +45,14 @@ export const metadata: Metadata = {
 // keyboard in the chat composer. `resizes-content` makes the browser
 // actually shrink the viewport when the keyboard opens, so `h-dvh`
 // recalculates and the composer sits flush above the keyboard.
+//
+// themeColor here drives the installed-app title bar / status bar tint
+// (and the browser UI color pre-install on mobile Chrome).
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   interactiveWidget: "resizes-content",
+  themeColor: "#0a0a0c",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -56,6 +74,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </Script>
       </head>
       <body className={`${fraunces.variable} ${inter.variable} font-body bg-void text-parchment antialiased`}>
+        <PwaRegister />
         {children}
       </body>
     </html>

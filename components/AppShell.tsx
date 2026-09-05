@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { apiFetch, resolveMediaUrl } from "@/lib/api";
 import { EARLY_ACCESS_MESSAGE, PREMIUM_PAYMENTS_ENABLED } from "@/lib/premium";
 import Logo from "@/components/Logo";
+import InstallAppButton from "@/components/InstallAppButton";
 
 type ChatPreview = {
   id: string;
@@ -137,6 +138,7 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
           {!PREMIUM_PAYMENTS_ENABLED && (
             <p className="text-[10px] text-parchment/30 leading-snug mb-3 italic">{EARLY_ACCESS_MESSAGE}</p>
           )}
+          <InstallAppButton className="mb-2" />
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gold/30 to-plum/50 flex items-center justify-center text-xs shadow-md">
               ◉
@@ -209,6 +211,7 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
                 );
               })}
             </div>
+            <InstallAppButton className="mb-4" />
             <div className="pt-3 border-t border-white/5">
               <p className="text-[11px] font-medium text-parchment/30 uppercase tracking-widest mb-2">Recent chats</p>
               {chats.length === 0 && (
