@@ -65,6 +65,7 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
         </Link>
 
         <nav className="px-3 mt-3 flex-1 relative">
+          <InstallAppButton className="mb-2" />
           <div className="space-y-0.5">
             {NAV.map(({ href, label, icon, badge }) => {
               const active = pathname === href || (href === "/dashboard" && pathname?.startsWith("/characters"));
@@ -138,7 +139,6 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
           {!PREMIUM_PAYMENTS_ENABLED && (
             <p className="text-[10px] text-parchment/30 leading-snug mb-3 italic">{EARLY_ACCESS_MESSAGE}</p>
           )}
-          <InstallAppButton className="mb-2" />
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gold/30 to-plum/50 flex items-center justify-center text-xs shadow-md">
               ◉
@@ -186,6 +186,7 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
         {/* Mobile menu */}
         {mobileMenuOpen && (
           <nav className="md:hidden border-b border-white/5 bg-surface-raised/95 backdrop-blur-sm px-4 py-3 animate-fade-in">
+            <InstallAppButton className="mb-3" />
             <div className="space-y-1 mb-4">
               {NAV.map(({ href, label, icon, badge }) => {
                 const active = pathname === href || (href === "/dashboard" && pathname?.startsWith("/characters"));
@@ -211,7 +212,6 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
                 );
               })}
             </div>
-            <InstallAppButton className="mb-4" />
             <div className="pt-3 border-t border-white/5">
               <p className="text-[11px] font-medium text-parchment/30 uppercase tracking-widest mb-2">Recent chats</p>
               {chats.length === 0 && (

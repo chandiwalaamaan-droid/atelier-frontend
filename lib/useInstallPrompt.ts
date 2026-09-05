@@ -43,9 +43,24 @@ export function useInstallPrompt() {
     setInstalled(isStandalone());
     setIos(isIos());
 
+    // Pick up an event that already fired before this component mounted —
+    // stashed by the early inline script in layout.tsx. On fast mobile
+    // loads `beforeinstallprompt` can fire before React hydrates, and the
+    // browser only fires it once per page load, so without this check
+    // we'd miss it permanently and canInstall would stay false forever
+    // even though Chrome considers the site installable.
+    const existing = (window as unknown as { __deferredInstallPrompt?: BeforeInstallPromptEvent | null })
+      .__deferredInstallPrompt;
+    if (existing) setDeferredEvent(existing);
+
     const onPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredEvent(e as BeforeInstallPromptEvent);
+    };
+    const onReady = () => {
+      const stashed = (window as unknown as { __deferredInstallPrompt?: BeforeInstallPromptEvent | null })
+        .__deferredInstallPrompt;
+      if (stashed) setDeferredEvent(stashed);
     };
     const onInstalled = () => {
       setInstalled(true);
@@ -53,9 +68,11 @@ export function useInstallPrompt() {
     };
 
     window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("deferredInstallPromptReady", onReady);
     window.addEventListener("appinstalled", onInstalled);
     return () => {
       window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("deferredInstallPromptReady", onReady);
       window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);

@@ -59,6 +59,30 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
+        {/*
+          Captures `beforeinstallprompt` the instant it fires, before React
+          has hydrated. On fast mobile loads Chrome can fire this event
+          within the first few dozen milliseconds — earlier than
+          useInstallPrompt's useEffect gets a chance to attach its own
+          listener. Since the browser only fires this event once per page
+          load, missing it here means the custom "Install app" button would
+          stay hidden forever even though Chrome considers the site
+          installable (which is exactly what we saw: the native "Install
+          and create shortcut" option showed up in Chrome's menu, but our
+          button never did). Stashing it on window lets the hook pick it up
+          on mount regardless of timing.
+        */}
+        <Script id="capture-install-prompt" strategy="beforeInteractive">
+          {`
+            window.__deferredInstallPrompt = null;
+            window.addEventListener("beforeinstallprompt", function (e) {
+              e.preventDefault();
+              window.__deferredInstallPrompt = e;
+              window.dispatchEvent(new Event("deferredInstallPromptReady"));
+            });
+          `}
+        </Script>
+
         {/* Google tag (gtag.js) */}
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
