@@ -128,7 +128,7 @@ function LoginForm() {
 
       <form onSubmit={onSubmit} className="relative w-full max-w-sm rounded-2xl bg-gradient-to-br from-plum/60 to-plum-deep/80 p-8 border border-white/5 shadow-2xl animate-scale-in glass-strong">
         <div className="text-center mb-6">
-          <span className="mb-2 block flex justify-center"><Logo size={40} className="animate-bounce-slow" /></span>
+          <span className="mb-2 block flex justify-center"><Logo size={40} /></span>
           <h1 className="font-display text-2xl shimmer-text">Welcome back</h1>
           <p className="text-sm text-parchment/50 mt-1">Log in to reach your characters.</p>
         </div>
