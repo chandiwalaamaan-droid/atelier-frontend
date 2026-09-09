@@ -1,9 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getCachedUser, fetchAndCacheUser } from "@/lib/authCache";
+
+// three.js/@react-three/fiber touch the DOM (WebGL canvas) on import, so
+// this can't run during SSR/static export — load it only in the browser.
+const HeroAuroraScene = dynamic(() => import("@/components/HeroAuroraScene"), {
+  ssr: false,
+});
 
 // Placeholder cast for logged-out visitors — there's no public/unauthenticated
 // character-listing endpoint (GET /api/characters/discover requires a
@@ -64,33 +71,14 @@ export default function Home() {
 
   if (authStatus === "guest") {
     return (
-      <main className="min-h-screen flex flex-col bg-void relative overflow-hidden aurora-bg">
-        <div
-          className="absolute top-[-10%] left-[-5%] w-[500px] h-[500px] rounded-full opacity-[0.06] pointer-events-none"
-          style={{
-            background: "radial-gradient(circle, #c9a227 0%, transparent 70%)",
-            animation: "float 8s ease-in-out infinite",
-          }}
-          aria-hidden
-        />
-        <div
-          className="absolute bottom-[-10%] right-[-5%] w-[600px] h-[600px] rounded-full opacity-[0.06] pointer-events-none"
-          style={{
-            background: "radial-gradient(circle, #b5657a 0%, transparent 70%)",
-            animation: "float 8s ease-in-out infinite",
-            animationDelay: "-4s",
-          }}
-          aria-hidden
-        />
-        <div
-          className="absolute top-[40%] right-[15%] w-[300px] h-[300px] rounded-full opacity-[0.04] pointer-events-none"
-          style={{
-            background: "radial-gradient(circle, #8b5cf6 0%, transparent 70%)",
-            animation: "float 6s ease-in-out infinite",
-            animationDelay: "-2s",
-          }}
-          aria-hidden
-        />
+      <main className="min-h-screen flex flex-col bg-void relative overflow-hidden">
+        {/* Replaces the old flat CSS aurora blobs with an actual 3D scene:
+            three layered wavy planes in the gold/rose/violet palette, tilting
+            toward the cursor. pointer-events: none inside the component keeps
+            every header/button click landing on the real UI, not the canvas. */}
+        <div className="absolute inset-0 pointer-events-none" aria-hidden>
+          <HeroAuroraScene />
+        </div>
 
         <header className="relative z-10 flex items-center justify-between px-4 py-4 sm:px-6 sm:py-5 md:px-12 md:py-5 border-b border-white/5 backdrop-blur-sm">
           <span className="font-display text-xl tracking-wide flex items-center gap-2">
