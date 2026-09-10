@@ -14,9 +14,9 @@ const HeroAuroraScene = dynamic(() => import("@/components/HeroAuroraScene"), {
 
 const FEATURED_CHARACTERS = [
   {
-    name: "Nyra Shadow",
-    tagline: "mysterious enchantress",
-    image: "/assets/characters/nyra-shadow.png",
+    name: "Sukuna",
+    tagline: "the king of curses",
+    image: "/assets/characters/Sukuna_202608132107.jpeg",
     accent: "violet",
   },
   {
@@ -40,19 +40,19 @@ const FEATURED_CHARACTERS = [
   {
     name: "Denji",
     tagline: "chaotic heart of gold",
-    image: "/assets/characters/denji-bg.png",
+    image: "/assets/characters/Denji_202608132107.jpeg",
     accent: "amber",
   },
   {
     name: "Yor Forger",
     tagline: "elegance with an edge",
-    image: "/assets/characters/yor-forger-bg.png",
+    image: "/assets/characters/Yor_Forger_202608132107.jpeg",
     accent: "rose",
   },
 ];
 
 const HERO_CHARACTERS = [
-  { name: "Nyra", image: "/assets/characters/nyra-shadow.png", className: "hero-character hero-character-main" },
+  { name: "Naruto", image: "/assets/characters/Naruto_Uzumaki_202608132107.jpeg", className: "hero-character hero-character-main" },
   { name: "Gojo", image: "/assets/characters/Satoru_Gojo_202608132107.jpeg", className: "hero-character hero-character-top" },
   { name: "Faye", image: "/assets/characters/Faye_Valentine_202608132107.jpeg", className: "hero-character hero-character-bottom" },
 ];
@@ -162,8 +162,8 @@ export default function Home() {
               <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-gold-light">
                 <span className="h-1.5 w-1.5 rounded-full bg-gold" /> Online
               </div>
-              <p className="font-display text-2xl">Nyra Shadow</p>
-              <p className="mt-1 text-xs text-parchment/50">mysterious enchantress</p>
+              <p className="font-display text-2xl">Naruto Uzumaki</p>
+              <p className="mt-1 text-xs text-parchment/50">never gives up</p>
             </div>
           </div>
 

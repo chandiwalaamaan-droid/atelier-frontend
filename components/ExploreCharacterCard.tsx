@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { resolveMediaUrl } from "@/lib/api";
 
 export type ExploreCardCharacter = {
@@ -95,8 +96,21 @@ export default function ExploreCharacterCard({ character: c, onRemix, remixing, 
   if (!tags.length) tags = inferTags(c);
   const blurb = c.tagline || c.personality;
 
+  function cachePreview() {
+    // Instant paint on the detail page — it re-fetches the full record
+    // (personality/backstory/greeting) right after, so this is just a
+    // stopgap so the click doesn't land on an empty screen.
+    try {
+      sessionStorage.setItem(`char_preview_${c.id}`, JSON.stringify(c));
+    } catch {
+      // sessionStorage unavailable (private mode, etc.) — detail page
+      // just waits for the server fetch instead.
+    }
+  }
+
   return (
     <article className="group rounded-2xl overflow-hidden bg-gradient-to-b from-surface-card to-surface-raised border border-white/5 hover:border-gold/30 transition-all duration-300 flex flex-col card-hover">
+      <Link href={`/characters/${c.id}`} onClick={cachePreview} className="contents focus-ring">
       <div className="relative aspect-[3/4] bg-surface-raised overflow-hidden">
         {c.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -139,16 +153,19 @@ export default function ExploreCharacterCard({ character: c, onRemix, remixing, 
           )}
         </div>
       </div>
+      </Link>
       <div className="p-3 flex flex-col flex-1">
-        <h3 className="font-semibold text-parchment truncate group-hover:text-gold transition-colors">{c.name}</h3>
-        <p className="text-xs text-parchment/50 line-clamp-2 mt-1 min-h-[2.5rem] leading-relaxed">{blurb}</p>
-        <div className="flex flex-wrap gap-1 mt-2 mb-3">
-          {tags.map((t) => (
-            <span key={t} className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-parchment/45 border border-white/5">
-              {t}
-            </span>
-          ))}
-        </div>
+        <Link href={`/characters/${c.id}`} onClick={cachePreview} className="focus-ring">
+          <h3 className="font-semibold text-parchment truncate group-hover:text-gold transition-colors">{c.name}</h3>
+          <p className="text-xs text-parchment/50 line-clamp-2 mt-1 min-h-[2.5rem] leading-relaxed">{blurb}</p>
+          <div className="flex flex-wrap gap-1 mt-2 mb-3">
+            {tags.map((t) => (
+              <span key={t} className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-parchment/45 border border-white/5">
+                {t}
+              </span>
+            ))}
+          </div>
+        </Link>
         <button
           type="button"
           onClick={onRemix}
