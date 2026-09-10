@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useCallback, type ReactNode, type FormEven
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "@/lib/api";
+import { getCharacterBackground } from "@/lib/characterBackgrounds";
 import RequireAuth from "@/components/RequireAuth";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import RoleplayModelPicker from "@/components/RoleplayModelPicker";
@@ -1047,7 +1048,7 @@ export default function ChatPage() {
             ref={scrollRef}
             onScroll={onScroll}
             className="flex-1 overflow-y-auto px-4 md:px-12 py-6 space-y-4 bg-cover bg-center bg-no-repeat"
-            style={character?.backgroundUrl ? { backgroundImage: `url(${resolveMediaUrl(character.backgroundUrl)})` } : undefined}
+            style={(() => { const bg = character?.backgroundUrl || (character ? getCharacterBackground(character.name) : null); return bg ? { backgroundImage: `url(${resolveMediaUrl(bg)})` } : undefined; })()}
           >
             {character && messages.length === 0 && (
               <div className="max-w-[85%] sm:max-w-lg chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 message-slide-in">

@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getCachedUser, fetchAndCacheUser } from "@/lib/authCache";
 import TiltCard from "@/components/TiltCard";
 import Logo from "@/components/Logo";
+import HeroSceneBoundary from "@/components/HeroSceneBoundary";
 
 const HeroAuroraScene = dynamic(() => import("@/components/HeroAuroraScene"), {
   ssr: false,
@@ -90,7 +92,7 @@ export default function Home() {
   return (
     <main className="landing-page relative min-h-screen overflow-hidden bg-void text-parchment">
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0">
-        <HeroAuroraScene />
+        <HeroSceneBoundary><HeroAuroraScene /></HeroSceneBoundary>
       </div>
       <div aria-hidden className="pointer-events-none fixed inset-0 z-[1] landing-vignette" />
       <div aria-hidden className="pointer-events-none fixed inset-0 z-[1] landing-grid" />
@@ -154,9 +156,9 @@ export default function Home() {
 
         <div className="relative mx-auto h-[470px] w-full max-w-[570px] lg:h-[560px]">
           <div aria-hidden className="absolute left-1/2 top-1/2 h-[360px] w-[360px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet/10 blur-[90px]" />
-          <div className="hero-character-frame absolute left-1/2 top-1/2 h-[400px] w-[280px] -translate-x-1/2 -translate-y-1/2 rotate-[1deg] overflow-hidden rounded-[34px] border border-white/10 bg-surface-card/70 shadow-[0_40px_100px_rgba(0,0,0,.45)] lg:h-[470px] lg:w-[330px]">
+          <div className="hero-character-frame absolute left-1/2 top-1/2 h-[400px] w-[min(280px,78vw)] -translate-x-1/2 -translate-y-1/2 rotate-[1deg] overflow-hidden rounded-[34px] border border-white/10 bg-surface-card/70 shadow-[0_40px_100px_rgba(0,0,0,.45)] lg:h-[470px] lg:w-[330px]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={HERO_CHARACTERS[0].image} alt={HERO_CHARACTERS[0].name} className="h-full w-full object-cover" />
+            <Image src={HERO_CHARACTERS[0].image} alt={HERO_CHARACTERS[0].name} fill priority sizes="(max-width: 1023px) min(280px, 78vw), 330px" className="object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/5 to-transparent" />
             <div className="absolute inset-x-0 bottom-0 p-5">
               <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-gold-light">
@@ -170,7 +172,7 @@ export default function Home() {
           {HERO_CHARACTERS.slice(1).map((char, index) => (
             <div key={char.name} className={`${char.className} hero-character-card absolute z-10 w-[145px] overflow-hidden rounded-2xl border border-white/10 bg-black/45 shadow-2xl backdrop-blur-xl sm:w-[165px]`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={char.image} alt={char.name} className="aspect-[4/5] w-full object-cover" />
+              <Image src={char.image} alt={char.name} fill sizes="(max-width: 639px) 145px, 165px" className="object-cover" />
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-3 pb-3 pt-8">
                 <p className="font-display text-sm">{char.name}</p>
               </div>
@@ -206,7 +208,7 @@ export default function Home() {
             <Link href="/signup" key={char.name} className="group block focus-ring rounded-2xl animate-fade-in-up" style={{ animationDelay: `${i * 60}ms` }}>
               <TiltCard className="character-card relative aspect-[3/4] overflow-hidden rounded-2xl border border-white/[0.07] bg-surface-card">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={char.image} alt={char.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-[420ms] [transition-timing-function:var(--ease-out)] group-hover:scale-[1.045]" />
+                <Image src={char.image} alt={char.name} fill sizes="(max-width: 639px) 50vw, (max-width: 1023px) 33vw, 16vw" className="object-cover transition-transform duration-[420ms] [transition-timing-function:var(--ease-out)] group-hover:scale-[1.045]" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent" />
                 <div className="absolute inset-x-0 bottom-0 p-3.5">
                   <p className="font-display text-sm leading-tight sm:text-base">{char.name}</p>

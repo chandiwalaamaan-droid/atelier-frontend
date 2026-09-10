@@ -958,4 +958,5 @@ body.chat-theme-ember {
 @keyframes hero-card-float { 0%, 100% { margin-top: 0; } 50% { margin-top: -7px; } }
 @media (prefers-reduced-motion: reduce) {
   .hero-character-frame, .hero-character-card { animation: none; }
+  .logo-wrap, .logo-wrap::before, .logo-wrap img { animation: none !important; }
 }

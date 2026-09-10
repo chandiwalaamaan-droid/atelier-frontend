@@ -7,6 +7,7 @@ import { apiFetch, resolveMediaUrl } from "@/lib/api";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import { inferTags, formatRemixCount, type ExploreCardCharacter } from "@/components/ExploreCharacterCard";
+import { getCharacterBackground } from "@/lib/characterBackgrounds";
 
 type CharacterDetail = ExploreCardCharacter & {
   backgroundUrl?: string | null;
@@ -144,10 +145,10 @@ export default function CharacterDetailPage() {
           {character && (
             <div className="max-w-2xl mx-auto">
               <div className="relative h-48 md:h-64 w-full overflow-hidden">
-                {character.backgroundUrl || character.avatarUrl ? (
+                {character.backgroundUrl || getCharacterBackground(character.name) || character.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={resolveMediaUrl(character.backgroundUrl || character.avatarUrl || "")}
+                    src={resolveMediaUrl(character.backgroundUrl || getCharacterBackground(character.name) || character.avatarUrl || "")}
                     alt=""
                     className="w-full h-full object-cover"
                   />

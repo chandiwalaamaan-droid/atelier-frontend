@@ -363,20 +363,45 @@ function CameraRig({
 
 export default function HeroAuroraScene() {
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [canUseWebGL, setCanUseWebGL] = useState<boolean | null>(null);
+  const [isLowPower, setIsLowPower] = useState(false);
   const scrollProgress = useScrollProgress();
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduceMotion(mq.matches);
-    const handler = () => setReduceMotion(mq.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+    const updateMotion = () => setReduceMotion(mq.matches);
+    updateMotion();
+    mq.addEventListener("change", updateMotion);
+
+    const canvas = document.createElement("canvas");
+    let supported = false;
+    try {
+      supported = Boolean(canvas.getContext("webgl2") || canvas.getContext("webgl"));
+    } catch {
+      supported = false;
+    }
+    setCanUseWebGL(supported);
+
+    const nav = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
+    const lowPower =
+      nav.connection?.saveData === true ||
+      (typeof nav.deviceMemory === "number" && nav.deviceMemory <= 4) ||
+      (typeof navigator.hardwareConcurrency === "number" && navigator.hardwareConcurrency <= 4);
+    setIsLowPower(lowPower);
+
+    return () => mq.removeEventListener("change", updateMotion);
   }, []);
+
+  if (canUseWebGL !== true || isLowPower) return null;
+
+  const isCoarsePointer = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+  const particleCount = isCoarsePointer ? 72 : 140;
+  const pixelRatio = isCoarsePointer ? ([1, 1.15] as [number, number]) : ([1, 1.5] as [number, number]);
 
   return (
     <Canvas
       camera={{ position: [0, 2, 13], fov: 50 }}
-      dpr={[1, 1.75]}
+      dpr={pixelRatio}
       gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
       style={{ position: "fixed", inset: 0, pointerEvents: "none" }}
     >
@@ -390,8 +415,8 @@ export default function HeroAuroraScene() {
 
       <CameraRig reduceMotion={reduceMotion} scrollProgress={scrollProgress} />
       <CenterpieceGem reduceMotion={reduceMotion} scrollProgress={scrollProgress} />
-      <EmberField reduceMotion={reduceMotion} scrollProgress={scrollProgress} />
-      <CursorTrail reduceMotion={reduceMotion} />
+      <EmberField count={particleCount} reduceMotion={reduceMotion} scrollProgress={scrollProgress} />
+      <CursorTrail reduceMotion={reduceMotion || isCoarsePointer} />
 
       <AuroraLayer color={GOLD} yOffset={-1.1} speed={0.35} amplitude={0.9} opacity={0.18} reduceMotion={reduceMotion} scrollProgress={scrollProgress} />
       <AuroraLayer color={ROSE} yOffset={-1.4} speed={0.5} amplitude={0.7} opacity={0.15} reduceMotion={reduceMotion} scrollProgress={scrollProgress} />
