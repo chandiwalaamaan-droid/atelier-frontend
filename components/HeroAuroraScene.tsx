@@ -113,8 +113,8 @@ function CenterpieceGem({
 
   useFrame(({ clock }) => {
     const fade = 1 - Math.min(scrollProgress.current * 1.4, 1);
-    if (outerMatRef.current) outerMatRef.current.opacity = 0.32 * fade;
-    if (innerMatRef.current) innerMatRef.current.opacity = 0.7 * fade;
+    if (outerMatRef.current) outerMatRef.current.opacity = 0.44 * fade;
+    if (innerMatRef.current) innerMatRef.current.opacity = 0.82 * fade;
 
     if (reduceMotion || !meshRef.current || !innerRef.current) return;
     const t = clock.getElapsedTime();
@@ -149,7 +149,7 @@ function CenterpieceGem({
           <octahedronGeometry args={[0.55, 0]} />
           <meshBasicMaterial ref={innerMatRef} color={ROSE} transparent opacity={0.7} wireframe />
         </mesh>
-        <pointLight color={GOLD} intensity={6} distance={6} decay={2} />
+        <pointLight color={GOLD} intensity={8} distance={7} decay={2} />
       </group>
     </Float>
   );
@@ -392,11 +392,17 @@ export default function HeroAuroraScene() {
     return () => mq.removeEventListener("change", updateMotion);
   }, []);
 
-  if (canUseWebGL !== true || isLowPower) return null;
+  if (canUseWebGL !== true) return null;
 
   const isCoarsePointer = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
-  const particleCount = isCoarsePointer ? 72 : 140;
-  const pixelRatio = isCoarsePointer ? ([1, 1.15] as [number, number]) : ([1, 1.5] as [number, number]);
+  // Keep the 3D hero visible on capable desktop devices. On constrained devices,
+  // reduce the scene rather than removing it entirely.
+  const particleCount = isCoarsePointer ? 54 : isLowPower ? 90 : 140;
+  const pixelRatio = isCoarsePointer
+    ? ([1, 1.1] as [number, number])
+    : isLowPower
+      ? ([1, 1.2] as [number, number])
+      : ([1, 1.5] as [number, number]);
 
   return (
     <Canvas
@@ -418,9 +424,9 @@ export default function HeroAuroraScene() {
       <EmberField count={particleCount} reduceMotion={reduceMotion} scrollProgress={scrollProgress} />
       <CursorTrail reduceMotion={reduceMotion || isCoarsePointer} />
 
-      <AuroraLayer color={GOLD} yOffset={-1.1} speed={0.35} amplitude={0.9} opacity={0.18} reduceMotion={reduceMotion} scrollProgress={scrollProgress} />
-      <AuroraLayer color={ROSE} yOffset={-1.4} speed={0.5} amplitude={0.7} opacity={0.15} reduceMotion={reduceMotion} scrollProgress={scrollProgress} />
-      <AuroraLayer color={VIOLET} yOffset={-1.7} speed={0.28} amplitude={1.1} opacity={0.12} reduceMotion={reduceMotion} scrollProgress={scrollProgress} />
+      <AuroraLayer color={GOLD} yOffset={-1.1} speed={0.35} amplitude={0.9} opacity={0.24} reduceMotion={reduceMotion} scrollProgress={scrollProgress} />
+      <AuroraLayer color={ROSE} yOffset={-1.4} speed={0.5} amplitude={0.7} opacity={0.19} reduceMotion={reduceMotion} scrollProgress={scrollProgress} />
+      <AuroraLayer color={VIOLET} yOffset={-1.7} speed={0.28} amplitude={1.1} opacity={0.15} reduceMotion={reduceMotion} scrollProgress={scrollProgress} />
 
       <EffectComposer>
         <Bloom intensity={0.9} luminanceThreshold={0.15} luminanceSmoothing={0.4} mipmapBlur radius={0.6} />
