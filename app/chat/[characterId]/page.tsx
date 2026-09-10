@@ -1047,7 +1047,7 @@ export default function ChatPage() {
           <div
             ref={scrollRef}
             onScroll={onScroll}
-            className="flex-1 overflow-y-auto px-4 md:px-12 py-6 space-y-4 bg-cover bg-center bg-no-repeat"
+            className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-12 py-6 space-y-4 bg-cover bg-center bg-no-repeat"
             style={(() => { const bg = character?.backgroundUrl || (character ? getCharacterBackground(character.name) : null); return bg ? { backgroundImage: `url(${resolveMediaUrl(bg)})` } : undefined; })()}
           >
             {character && messages.length === 0 && (
