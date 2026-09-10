@@ -6,36 +6,61 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getCachedUser, fetchAndCacheUser } from "@/lib/authCache";
 import TiltCard from "@/components/TiltCard";
+import Logo from "@/components/Logo";
 
-// three.js/@react-three/fiber touch the DOM (WebGL canvas) on import, so
-// this can't run during SSR/static export — load it only in the browser.
 const HeroAuroraScene = dynamic(() => import("@/components/HeroAuroraScene"), {
   ssr: false,
 });
 
-// Placeholder cast for logged-out visitors — there's no public/unauthenticated
-// character-listing endpoint (GET /api/characters/discover requires a
-// session, by design: it's filtered by isPublic/isHidden/isExplicit and
-// intentionally not exposed to unauthenticated scraping/indexing). Swapping
-// these for real characters would mean adding that public endpoint, which is
-// a deliberate call about what's crawlable/scrapable while logged out, not
-// a drop-in fix — so these stay clearly-labeled placeholders that route to
-// signup (matching the rest of this page's CTAs) instead of pretending to
-// open a real chat.
 const FEATURED_CHARACTERS = [
-  { name: "Nyra Shadow", tagline: "mysterious enchantress", emoji: "🌙", color: "#8b5cf6" },
-  { name: "Evelyn Rose", tagline: "romantic poet", emoji: "🌹", color: "#b5657a" },
-  { name: "Damien Black", tagline: "brooding detective", emoji: "🕵️", color: "#06b6d4" },
-  { name: "Luna Voss", tagline: "celestial wanderer", emoji: "✨", color: "#c9a227" },
-  { name: "Mistress Vesper", tagline: "dominatrix extraordinaire", emoji: "💋", color: "#d946ef" },
-  { name: "Victor Kane", tagline: "vampire aristocrat", emoji: "🦇", color: "#8a3d54" },
+  {
+    name: "Nyra Shadow",
+    tagline: "mysterious enchantress",
+    image: "/assets/characters/nyra-shadow.png",
+    accent: "violet",
+  },
+  {
+    name: "Faye Valentine",
+    tagline: "sharp-tongued dreamer",
+    image: "/assets/characters/Faye_Valentine_202608132107.jpeg",
+    accent: "rose",
+  },
+  {
+    name: "Satoru Gojo",
+    tagline: "the strongest, casually",
+    image: "/assets/characters/Satoru_Gojo_202608132107.jpeg",
+    accent: "cyan",
+  },
+  {
+    name: "Hinata Hyuga",
+    tagline: "quiet strength",
+    image: "/assets/characters/Hinata_Hyuga_202608132107.jpeg",
+    accent: "violet",
+  },
+  {
+    name: "Denji",
+    tagline: "chaotic heart of gold",
+    image: "/assets/characters/denji-bg.png",
+    accent: "amber",
+  },
+  {
+    name: "Yor Forger",
+    tagline: "elegance with an edge",
+    image: "/assets/characters/yor-forger-bg.png",
+    accent: "rose",
+  },
+];
+
+const HERO_CHARACTERS = [
+  { name: "Nyra", image: "/assets/characters/nyra-shadow.png", className: "hero-character hero-character-main" },
+  { name: "Gojo", image: "/assets/characters/Satoru_Gojo_202608132107.jpeg", className: "hero-character hero-character-top" },
+  { name: "Faye", image: "/assets/characters/Faye_Valentine_202608132107.jpeg", className: "hero-character hero-character-bottom" },
 ];
 
 export default function Home() {
   const router = useRouter();
   const [authStatus, setAuthStatus] = useState<"checking" | "authed" | "guest">("checking");
 
-  // Who am I? (mirrors RequireAuth's cache-first check, see lib/authCache.ts)
   useEffect(() => {
     let cancelled = false;
     const cached = getCachedUser();
@@ -50,14 +75,6 @@ export default function Home() {
     return () => { cancelled = true; };
   }, []);
 
-  // Previously this branch rendered a full duplicate "Profile Settings" editor
-  // right here on "/" for logged-in visitors (identical to /me's page, minus
-  // the app nav) instead of taking them into the app. That meant every time
-  // a signed-in user opened the site's link, they landed on a profile-editing
-  // dead end with no way back in except the small "Studio" button — clicking
-  // the logo/link again just reloaded the same page. "/me" already owns
-  // profile editing, so signed-in visitors to "/" now go straight to the
-  // real logged-in home, /explore, instead.
   useEffect(() => {
     if (authStatus === "authed") router.replace("/explore");
   }, [authStatus, router]);
@@ -65,125 +82,187 @@ export default function Home() {
   if (authStatus === "checking" || authStatus === "authed") {
     return (
       <main className="min-h-screen flex items-center justify-center bg-void">
-        <p className="text-parchment/60">Loading…</p>
+        <p className="text-parchment/60 text-sm">Loading…</p>
       </main>
     );
   }
 
-  if (authStatus === "guest") {
-    return (
-      <main className="min-h-screen flex flex-col relative overflow-hidden">
-        {/* Replaces the old flat CSS aurora blobs with an actual 3D scene:
-            three layered wavy planes, a floating reflective gem, drifting
-            embers, and a cursor sparkle trail — all in the gold/rose/violet
-            palette. The scene's own Canvas is position: fixed and spans the
-            full page (not just this hero section) so it persists as a
-            subtle, scroll-reactive backdrop behind every section below.
-            pointer-events: none keeps every click landing on the real UI. */}
-        <div aria-hidden>
-          <HeroAuroraScene />
-        </div>
+  return (
+    <main className="landing-page relative min-h-screen overflow-hidden bg-void text-parchment">
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-0">
+        <HeroAuroraScene />
+      </div>
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-[1] landing-vignette" />
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-[1] landing-grid" />
 
-        <header className="relative z-10 flex items-center justify-between px-4 py-4 sm:px-6 sm:py-5 md:px-12 md:py-5 border-b border-white/5 backdrop-blur-sm">
-          <span className="font-display text-xl tracking-wide flex items-center gap-2">
-            <span className="text-lg animate-bounce-slow">🌸</span>
-            <span className="shimmer-text">Rolichat</span>
-          </span>
-          <nav className="flex gap-2 sm:gap-3 text-xs sm:text-sm">
-            <Link href="/login" className="hover:text-gold focus-ring rounded-full px-3 py-1.5 sm:px-4 sm:py-2 transition-colors hover:bg-white/5">Log in</Link>
-            <Link href="/signup" className="bg-gold text-ink px-3 py-1.5 sm:px-5 sm:py-2 rounded-full font-medium hover:brightness-110 focus-ring btn-shine inline-block shadow-lg shadow-gold/20 text-xs sm:text-base">Get started</Link>
+      <header className="relative z-20 px-5 py-4 sm:px-8 lg:px-12">
+        <div className="mx-auto flex max-w-7xl items-center justify-between rounded-2xl border border-white/[0.07] bg-black/20 px-3 py-2.5 backdrop-blur-xl sm:px-4">
+          <Link href="/" className="group flex items-center gap-3 rounded-xl px-2 py-1 focus-ring">
+            <Logo size={30} />
+            <div className="leading-none">
+              <span className="font-display text-lg tracking-tight">Rolichat</span>
+              <span className="ml-2 hidden text-[10px] uppercase tracking-[0.22em] text-parchment/35 sm:inline">AI roleplay</span>
+            </div>
+          </Link>
+
+          <nav className="flex items-center gap-1.5 sm:gap-2">
+            <Link href="/login" className="rounded-full px-3 py-2 text-xs text-parchment/65 transition-colors duration-150 hover:bg-white/[0.05] hover:text-parchment focus-ring sm:px-4 sm:text-sm">
+              Log in
+            </Link>
+            <Link href="/signup" className="btn-shine btn-press rounded-full bg-gold px-4 py-2 text-xs font-semibold text-ink shadow-[0_8px_30px_rgba(201,162,39,.18)] transition-[filter,transform] duration-150 hover:brightness-110 focus-ring sm:px-5 sm:text-sm">
+              Get started
+            </Link>
           </nav>
-        </header>
+        </div>
+      </header>
 
-        <section className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6 md:px-12 py-16">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-gold text-gold text-xs mb-8 animate-fade-in">
-            <span className="w-2 h-2 rounded-full bg-gold animate-sparkle glow-dot text-gold" />
-            a workshop for characters
+      <section className="relative z-10 mx-auto grid max-w-7xl items-center gap-12 px-6 pb-20 pt-12 sm:px-8 md:pt-20 lg:grid-cols-[1.02fr_.98fr] lg:gap-16 lg:px-12 lg:pb-28 lg:pt-24">
+        <div className="max-w-2xl">
+          <div className="animate-fade-in-up inline-flex items-center gap-2 rounded-full border border-gold/20 bg-gold/[0.06] px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.18em] text-gold-light">
+            <span className="h-1.5 w-1.5 rounded-full bg-gold shadow-[0_0_14px_rgba(201,162,39,.8)]" />
+            Your characters. Your stories.
           </div>
 
-          <h1 className="font-display text-5xl md:text-7xl lg:text-8xl max-w-4xl leading-tight animate-fade-in-up">
-            Give a personality a <span className="shimmer-text">voice</span>,<br />then talk to it.
+          <h1 className="mt-7 max-w-3xl animate-fade-in-up font-display text-[3.6rem] leading-[.94] tracking-[-0.045em] sm:text-6xl md:text-7xl lg:text-[5.8rem]" style={{ animationDelay: "60ms" }}>
+            <span className="text-parchment">Meet someone</span>
+            <br />
+            <span className="shimmer-text">worth talking to.</span>
           </h1>
 
-          <p className="mt-8 max-w-xl text-parchment/60 font-body text-lg leading-relaxed animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
-            Craft unique characters with rich personalities and backstories.
-            Every character you make is <span className="text-parchment/90 font-medium">private, editable, and ready whenever you are.</span>
+          <p className="mt-7 max-w-xl animate-fade-in-up text-base leading-7 text-parchment/55 sm:text-lg" style={{ animationDelay: "120ms" }}>
+            Create AI characters with their own personality, memory and story — then step inside the conversation.
           </p>
 
-          <div className="mt-12 flex flex-col sm:flex-row gap-4 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
-            <Link href="/signup" className="bg-gold text-ink px-8 py-4 rounded-full font-medium hover:brightness-110 focus-ring btn-shine text-lg shadow-xl shadow-gold/20 animate-pulse-glow">Create your first character</Link>
-            <Link href="/login" className="border border-parchment/25 px-8 py-4 rounded-full font-medium hover:border-gold focus-ring transition-all hover:bg-white/5">I already have an account</Link>
+          <div className="mt-9 flex animate-fade-in-up flex-col gap-3 sm:flex-row" style={{ animationDelay: "180ms" }}>
+            <Link href="/signup" className="btn-shine btn-press group inline-flex items-center justify-center gap-3 rounded-full bg-gold px-6 py-3.5 text-sm font-semibold text-ink shadow-[0_16px_50px_rgba(201,162,39,.16)] transition-[filter,transform] duration-150 hover:brightness-110 focus-ring">
+              Create a character
+              <span aria-hidden className="text-base transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+            </Link>
+            <Link href="/login" className="btn-press inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.025] px-6 py-3.5 text-sm font-medium text-parchment/75 backdrop-blur-sm transition-[background,border-color,transform] duration-200 hover:border-white/20 hover:bg-white/[0.06] focus-ring">
+              I already have an account
+            </Link>
           </div>
 
-          <div className="mt-16 flex flex-wrap justify-center gap-8 md:gap-16 animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
-            <div className="text-center">
-              <p className="font-display text-3xl gradient-text">∞</p>
-              <p className="text-xs text-parchment/40 mt-1">Characters</p>
-            </div>
-            <div className="w-px h-12 bg-white/10" />
-            <div className="text-center">
-              <p className="font-display text-3xl gradient-text">✦</p>
-              <p className="text-xs text-parchment/40 mt-1">Private by design</p>
-            </div>
-            <div className="w-px h-12 bg-white/10" />
-            <div className="text-center">
-              <p className="font-display text-3xl gradient-text">AI</p>
-              <p className="text-xs text-parchment/40 mt-1">Powered</p>
-            </div>
-          </div>
-        </section>
-
-        <section className="relative z-10 px-6 md:px-12 py-12">
-          <div className="text-center mb-8">
-            <p className="text-xs text-gold/60 uppercase tracking-widest mb-2">Meet the cast</p>
-            <h2 className="font-display text-2xl md:text-3xl gradient-text">Characters waiting for you</h2>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 max-w-5xl mx-auto">
-            {FEATURED_CHARACTERS.map((char, i) => (
-              <Link
-                href="/signup"
-                key={char.name}
-                className="group cursor-pointer animate-fade-in-up block"
-                style={{ animationDelay: `${0.4 + i * 0.08}s` }}
-              >
-                <TiltCard className="relative aspect-[3/4] rounded-2xl overflow-hidden border border-white/5 card-hover" style={{ background: `linear-gradient(160deg, ${char.color}30, #121218)` }}>
-                  <div className="absolute inset-0 flex items-center justify-center text-5xl group-hover:scale-110 transition-transform duration-500">{char.emoji}</div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-3">
-                    <p className="font-display text-sm font-medium text-parchment truncate">{char.name}</p>
-                    <p className="text-[10px] text-parchment/50 truncate">{char.tagline}</p>
-                  </div>
-                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ boxShadow: `inset 0 0 30px ${char.color}20` }} />
-                </TiltCard>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        <div className="relative z-10 stitched mx-6 mb-12 md:mx-12 rounded-2xl bg-gradient-to-br from-plum/40 via-plum/50 to-plum-deep/60 backdrop-blur-sm px-8 py-10 grid gap-8 grid-cols-1 md:grid-cols-3 border-glow-gold">
-          <div className="animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
-            <div className="w-10 h-10 rounded-full bg-gold/15 flex items-center justify-center mb-3"><span className="text-gold font-display font-bold">01</span></div>
-            <p className="font-display text-lg text-gold mb-2">Craft</p>
-            <p className="text-sm text-parchment/60 leading-relaxed">Name a character, describe their traits and background, and write the line they open with.</p>
-          </div>
-          <div className="animate-fade-in-up" style={{ animationDelay: "0.4s" }}>
-            <div className="w-10 h-10 rounded-full bg-gold/15 flex items-center justify-center mb-3"><span className="text-gold font-display font-bold">02</span></div>
-            <p className="font-display text-lg text-gold mb-2">Converse</p>
-            <p className="text-sm text-parchment/60 leading-relaxed">Chat naturally. Each character remembers your conversation with them, and only them.</p>
-          </div>
-          <div className="animate-fade-in-up" style={{ animationDelay: "0.5s" }}>
-            <div className="w-10 h-10 rounded-full bg-gold/15 flex items-center justify-center mb-3"><span className="text-gold font-display font-bold">03</span></div>
-            <p className="font-display text-lg text-gold mb-2">Iterate</p>
-            <p className="text-sm text-parchment/60 leading-relaxed">Edit a character&apos;s backstory any time and the next reply reflects the change.</p>
+          <div className="mt-12 flex animate-fade-in-up flex-wrap items-center gap-x-7 gap-y-3 text-[11px] text-parchment/35" style={{ animationDelay: "240ms" }}>
+            <span>01 — Create</span>
+            <span className="hidden h-px w-8 bg-white/10 sm:block" />
+            <span>02 — Talk</span>
+            <span className="hidden h-px w-8 bg-white/10 sm:block" />
+            <span>03 — Remember</span>
           </div>
         </div>
 
-        <footer className="relative z-10 px-6 pb-10 md:px-12 flex flex-wrap gap-x-6 gap-y-2 text-xs text-parchment/40">
+        <div className="relative mx-auto h-[470px] w-full max-w-[570px] lg:h-[560px]">
+          <div aria-hidden className="absolute left-1/2 top-1/2 h-[360px] w-[360px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet/10 blur-[90px]" />
+          <div className="hero-character-frame absolute left-1/2 top-1/2 h-[400px] w-[280px] -translate-x-1/2 -translate-y-1/2 rotate-[1deg] overflow-hidden rounded-[34px] border border-white/10 bg-surface-card/70 shadow-[0_40px_100px_rgba(0,0,0,.45)] lg:h-[470px] lg:w-[330px]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={HERO_CHARACTERS[0].image} alt={HERO_CHARACTERS[0].name} className="h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/5 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 p-5">
+              <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-gold-light">
+                <span className="h-1.5 w-1.5 rounded-full bg-gold" /> Online
+              </div>
+              <p className="font-display text-2xl">Nyra Shadow</p>
+              <p className="mt-1 text-xs text-parchment/50">mysterious enchantress</p>
+            </div>
+          </div>
+
+          {HERO_CHARACTERS.slice(1).map((char, index) => (
+            <div key={char.name} className={`${char.className} hero-character-card absolute z-10 w-[145px] overflow-hidden rounded-2xl border border-white/10 bg-black/45 shadow-2xl backdrop-blur-xl sm:w-[165px]`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={char.image} alt={char.name} className="aspect-[4/5] w-full object-cover" />
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-3 pb-3 pt-8">
+                <p className="font-display text-sm">{char.name}</p>
+              </div>
+              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-emerald shadow-[0_0_12px_rgba(16,185,129,.8)]" />
+            </div>
+          ))}
+
+          <div className="absolute bottom-2 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/10 bg-black/50 px-4 py-2 text-[10px] text-parchment/55 shadow-xl backdrop-blur-xl">
+            A world of characters, one conversation away.
+          </div>
+        </div>
+      </section>
+
+      <section className="relative z-10 border-y border-white/[0.06] bg-black/20 px-6 py-5 backdrop-blur-md sm:px-8 lg:px-12">
+        <div className="mx-auto grid max-w-7xl grid-cols-3 divide-x divide-white/[0.07]">
+          <div className="px-4 text-center sm:px-8"><p className="font-display text-xl sm:text-2xl">Infinite</p><p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-parchment/30">possibilities</p></div>
+          <div className="px-4 text-center sm:px-8"><p className="font-display text-xl sm:text-2xl">Personal</p><p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-parchment/30">characters</p></div>
+          <div className="px-4 text-center sm:px-8"><p className="font-display text-xl sm:text-2xl">AI-powered</p><p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-parchment/30">roleplay</p></div>
+        </div>
+      </section>
+
+      <section className="relative z-10 mx-auto max-w-7xl px-6 py-20 sm:px-8 lg:px-12 lg:py-28">
+        <div className="mb-9 flex items-end justify-between gap-6">
+          <div>
+            <p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-gold/65">The cast</p>
+            <h2 className="font-display text-3xl tracking-tight sm:text-4xl">Start with a character.</h2>
+          </div>
+          <p className="hidden max-w-xs text-right text-xs leading-5 text-parchment/35 sm:block">Use these characters as inspiration, then make the story yours.</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4">
+          {FEATURED_CHARACTERS.map((char, i) => (
+            <Link href="/signup" key={char.name} className="group block focus-ring rounded-2xl animate-fade-in-up" style={{ animationDelay: `${i * 60}ms` }}>
+              <TiltCard className="character-card relative aspect-[3/4] overflow-hidden rounded-2xl border border-white/[0.07] bg-surface-card">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={char.image} alt={char.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-[420ms] [transition-timing-function:var(--ease-out)] group-hover:scale-[1.045]" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 p-3.5">
+                  <p className="font-display text-sm leading-tight sm:text-base">{char.name}</p>
+                  <p className="mt-1 truncate text-[10px] text-parchment/45">{char.tagline}</p>
+                </div>
+                <div className="absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100" style={{ boxShadow: "inset 0 0 45px rgba(201,162,39,.16)" }} />
+              </TiltCard>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="relative z-10 mx-auto max-w-7xl px-6 pb-20 sm:px-8 lg:px-12 lg:pb-28">
+        <div className="overflow-hidden rounded-[28px] border border-white/[0.08] bg-gradient-to-br from-plum/45 via-surface-card/80 to-black/40 p-7 shadow-[0_30px_100px_rgba(0,0,0,.25)] sm:p-10 lg:p-12">
+          <div className="grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:gap-16">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-gold/70">How it works</p>
+              <h2 className="mt-3 max-w-md font-display text-3xl leading-tight sm:text-4xl">Build the person. Enter the story.</h2>
+            </div>
+            <div className="grid gap-7 sm:grid-cols-3">
+              {[
+                ["01", "Craft", "Give your character a voice, personality and history."],
+                ["02", "Converse", "Start a conversation and let the roleplay unfold."],
+                ["03", "Evolve", "Refine your character and keep building the story."],
+              ].map(([number, title, text]) => (
+                <div key={number} className="group">
+                  <p className="text-[10px] font-semibold tracking-[0.18em] text-gold/70">{number}</p>
+                  <p className="mt-3 font-display text-xl transition-colors duration-150 group-hover:text-gold-light">{title}</p>
+                  <p className="mt-2 text-xs leading-5 text-parchment/45">{text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="relative z-10 px-6 pb-24 sm:px-8 lg:px-12">
+        <div className="mx-auto max-w-4xl text-center">
+          <p className="text-[10px] uppercase tracking-[0.22em] text-gold/65">Your next story starts here</p>
+          <h2 className="mx-auto mt-3 max-w-3xl font-display text-4xl leading-[1] tracking-tight sm:text-6xl">Don&apos;t just chat with AI. Step into the story.</h2>
+          <Link href="/signup" className="btn-shine btn-press mt-8 inline-flex items-center gap-3 rounded-full bg-gold px-7 py-3.5 text-sm font-semibold text-ink shadow-[0_18px_60px_rgba(201,162,39,.2)] transition-[filter,transform] duration-150 hover:brightness-110 focus-ring">
+            Start creating
+            <span aria-hidden>→</span>
+          </Link>
+        </div>
+      </section>
+
+      <footer className="relative z-10 border-t border-white/[0.06] px-6 py-7 sm:px-8 lg:px-12">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 text-[10px] text-parchment/30 sm:flex-row sm:items-center sm:justify-between">
           <span>Rolichat is for adults 18+.</span>
-          <Link href="/terms" className="hover:text-gold transition-colors">Terms of Service & Content Policy</Link>
-          <Link href="/privacy" className="hover:text-gold transition-colors">Privacy Policy</Link>
-        </footer>
-      </main>
-    );
-  }
+          <div className="flex gap-5">
+            <Link href="/terms" className="transition-colors hover:text-parchment/60">Terms & Content Policy</Link>
+            <Link href="/privacy" className="transition-colors hover:text-parchment/60">Privacy</Link>
+          </div>
+        </div>
+      </footer>
+    </main>
+  );
 }
