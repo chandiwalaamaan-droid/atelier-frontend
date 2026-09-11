@@ -960,3 +960,53 @@ body.chat-theme-ember {
   .hero-character-frame, .hero-character-card { animation: none; }
   .logo-wrap, .logo-wrap::before, .logo-wrap img { animation: none !important; }
 }
+
+
+/* ===== Mobile landing typography polish ===== */
+@media (max-width: 639px) {
+  .landing-page {
+    overflow-x: clip;
+  }
+
+  /* Keep the hero card and its caption comfortably inside small screens. */
+  .hero-character-frame {
+    width: min(280px, 78vw);
+    height: min(400px, 102vw);
+    border-radius: 28px;
+  }
+
+  .hero-character-frame .font-display {
+    font-size: clamp(1.25rem, 6vw, 1.5rem);
+    line-height: 1.05;
+  }
+
+  .hero-character-frame .absolute.inset-x-0.bottom-0 {
+    padding: 1rem;
+  }
+
+  /* The floating cards are decoration on phones; don't let them collide with
+     the primary card or create accidental horizontal overflow. */
+  .hero-character-top {
+    top: 7%;
+    right: -1%;
+    width: 112px;
+  }
+
+  .hero-character-bottom {
+    bottom: 8%;
+    left: -1%;
+    width: 112px;
+  }
+
+  /* Stats have three fixed columns, so text must never wrap into a second
+     line and collide with the dividers. */
+  .landing-page .grid.grid-cols-3 > div {
+    min-width: 0;
+  }
+
+  /* Make the cast section breathe on narrow displays. */
+  .landing-page section h2 {
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+}

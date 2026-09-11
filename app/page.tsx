@@ -180,25 +180,34 @@ export default function Home() {
             </div>
           ))}
 
-          <div className="absolute bottom-2 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/10 bg-black/50 px-4 py-2 text-[10px] text-parchment/55 shadow-xl backdrop-blur-xl">
+          <div className="absolute bottom-1 left-1/2 z-20 w-max max-w-[calc(100%-24px)] -translate-x-1/2 rounded-full border border-white/10 bg-black/50 px-4 py-2 text-center text-[10px] leading-tight text-parchment/55 shadow-xl backdrop-blur-xl">
             A world of characters, one conversation away.
           </div>
         </div>
       </section>
 
-      <section className="relative z-10 border-y border-white/[0.06] bg-black/20 px-6 py-5 backdrop-blur-md sm:px-8 lg:px-12">
+      <section className="relative z-10 border-y border-white/[0.06] bg-black/20 px-4 py-6 backdrop-blur-md sm:px-8 sm:py-5 lg:px-12">
         <div className="mx-auto grid max-w-7xl grid-cols-3 divide-x divide-white/[0.07]">
-          <div className="px-4 text-center sm:px-8"><p className="font-display text-xl sm:text-2xl">Infinite</p><p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-parchment/30">possibilities</p></div>
-          <div className="px-4 text-center sm:px-8"><p className="font-display text-xl sm:text-2xl">Personal</p><p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-parchment/30">characters</p></div>
-          <div className="px-4 text-center sm:px-8"><p className="font-display text-xl sm:text-2xl">AI-powered</p><p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-parchment/30">roleplay</p></div>
+          <div className="min-w-0 px-2 text-center sm:px-8">
+            <p className="whitespace-nowrap font-display text-[15px] leading-tight tracking-[-0.02em] sm:text-2xl">Infinite</p>
+            <p className="mt-1 whitespace-nowrap text-[8px] uppercase tracking-[0.14em] text-parchment/30 sm:text-[10px] sm:tracking-[0.18em]">possibilities</p>
+          </div>
+          <div className="min-w-0 px-2 text-center sm:px-8">
+            <p className="whitespace-nowrap font-display text-[15px] leading-tight tracking-[-0.02em] sm:text-2xl">Personal</p>
+            <p className="mt-1 whitespace-nowrap text-[8px] uppercase tracking-[0.14em] text-parchment/30 sm:text-[10px] sm:tracking-[0.18em]">characters</p>
+          </div>
+          <div className="min-w-0 px-2 text-center sm:px-8">
+            <p className="whitespace-nowrap font-display text-[15px] leading-tight tracking-[-0.025em] sm:text-2xl">AI-powered</p>
+            <p className="mt-1 whitespace-nowrap text-[8px] uppercase tracking-[0.14em] text-parchment/30 sm:text-[10px] sm:tracking-[0.18em]">roleplay</p>
+          </div>
         </div>
       </section>
 
-      <section className="relative z-10 mx-auto max-w-7xl px-6 py-20 sm:px-8 lg:px-12 lg:py-28">
-        <div className="mb-9 flex items-end justify-between gap-6">
+      <section className="relative z-10 mx-auto max-w-7xl px-5 py-16 sm:px-8 lg:px-12 lg:py-28">
+        <div className="mb-8 flex items-end justify-between gap-6 sm:mb-9">
           <div>
             <p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-gold/65">The cast</p>
-            <h2 className="font-display text-3xl tracking-tight sm:text-4xl">Start with a character.</h2>
+            <h2 className="max-w-full font-display text-[clamp(2rem,8vw,2.5rem)] leading-[1.04] tracking-tight sm:text-4xl">Start with a character.</h2>
           </div>
           <p className="hidden max-w-xs text-right text-xs leading-5 text-parchment/35 sm:block">Use these characters as inspiration, then make the story yours.</p>
         </div>
