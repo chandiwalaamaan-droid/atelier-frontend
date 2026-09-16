@@ -9,6 +9,7 @@ import { getCachedUser, fetchAndCacheUser } from "@/lib/authCache";
 import TiltCard from "@/components/TiltCard";
 import Logo from "@/components/Logo";
 import HeroSceneBoundary from "@/components/HeroSceneBoundary";
+import ScrollFrameSequence from "@/components/ScrollFrameSequence";
 
 const HeroAuroraScene = dynamic(() => import("@/components/HeroAuroraScene"), {
   ssr: false,
@@ -184,6 +185,22 @@ export default function Home() {
             A world of characters, one conversation away.
           </div>
         </div>
+      </section>
+
+      <section className="relative z-10">
+        <ScrollFrameSequence
+          basePath="/frames/character-reveal"
+          frameCount={120}
+          extension="webp"
+          scrollHeightVh={400}
+        >
+          <div className="flex h-full flex-col items-center justify-end pb-16 text-center">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-gold/70">Every character starts as an idea</p>
+            <h2 className="mt-3 max-w-xl px-6 font-display text-3xl leading-tight sm:text-5xl">
+              Give it a voice. Watch it come alive.
+            </h2>
+          </div>
+        </ScrollFrameSequence>
       </section>
 
       <section className="relative z-10 border-y border-white/[0.06] bg-black/20 px-4 py-6 backdrop-blur-md sm:px-8 sm:py-5 lg:px-12">
