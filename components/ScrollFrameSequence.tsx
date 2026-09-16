@@ -67,6 +67,7 @@ export default function ScrollFrameSequence({
   showProgress = true,
 }: ScrollFrameSequenceProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const imagesRef = useRef<HTMLImageElement[]>([]);
   const currentFrameRef = useRef(0);
@@ -163,7 +164,8 @@ export default function ScrollFrameSequence({
         offsetY = (canvas.height - drawH) / 2;
       }
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
     }
 
@@ -191,8 +193,52 @@ export default function ScrollFrameSequence({
       rafIdRef.current = requestAnimationFrame(renderLoop);
     }
 
+    function pinStage() {
+      const wrapper = wrapperRef.current;
+      const stage = stageRef.current;
+      if (!wrapper || !stage) return;
+
+      // Manual replacement for `position: sticky`. Sticky silently stops
+      // working the moment ANY ancestor has overflow other than "visible"
+      // (this page's <main> uses overflow-hidden for its decorative
+      // background layers), so instead we compute the three states of a
+      // sticky element by hand and apply them with fixed/absolute:
+      //   1. Wrapper hasn't reached the top of the viewport yet -> stage
+      //      sits at the top of the wrapper (absolute).
+      //   2. Wrapper spans the viewport -> stage is pinned to the screen
+      //      (fixed) while the wrapper scrolls underneath it.
+      //   3. Wrapper has scrolled past -> stage sits at the bottom of the
+      //      wrapper (absolute), so it scrolls away with the page normally.
+      const rect = wrapper.getBoundingClientRect();
+      const viewportH = window.innerHeight;
+
+      if (rect.top > 0) {
+        stage.style.position = "absolute";
+        stage.style.top = "0px";
+        stage.style.bottom = "";
+        stage.style.left = "0px";
+        stage.style.width = "100%";
+        stage.style.height = `${viewportH}px`;
+      } else if (rect.bottom <= viewportH) {
+        stage.style.position = "absolute";
+        stage.style.top = "";
+        stage.style.bottom = "0px";
+        stage.style.left = "0px";
+        stage.style.width = "100%";
+        stage.style.height = `${viewportH}px`;
+      } else {
+        stage.style.position = "fixed";
+        stage.style.top = "0px";
+        stage.style.bottom = "";
+        stage.style.left = "0px";
+        stage.style.width = "100%";
+        stage.style.height = `${viewportH}px`;
+      }
+    }
+
     function onScroll() {
       const wrapper = wrapperRef.current;
+      pinStage();
       if (!wrapper || reducedMotionRef.current) return;
 
       const rect = wrapper.getBoundingClientRect();
@@ -216,6 +262,7 @@ export default function ScrollFrameSequence({
     }
 
     function onResize() {
+      pinStage();
       drawFrame(currentFrameRef.current);
     }
 
@@ -239,7 +286,11 @@ export default function ScrollFrameSequence({
       className={`relative ${className}`}
       style={{ height: `${scrollHeightVh}vh` }}
     >
-      <div className="sticky top-0 h-screen w-full overflow-hidden">
+      <div
+        ref={stageRef}
+        className="z-20 h-screen w-full overflow-hidden bg-void"
+        style={{ position: "absolute", top: 0, left: 0, width: "100%" }}
+      >
         <canvas ref={canvasRef} className="h-full w-full" />
 
         {isLoading && (
