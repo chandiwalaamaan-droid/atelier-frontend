@@ -2,336 +2,169 @@
 
 import { useEffect, useRef, useState } from "react";
 
-type ScrollFrameSequenceProps = {
-  /**
-   * Path prefix for frames, e.g. "/frames/product" if files are
-   * /public/frames/product/0001.webp, 0002.webp, ...
-   */
-  basePath: string;
-  /** Total number of frames in the sequence (desktop / full-res count). */
-  frameCount: number;
-  /** File extension of the frames. Default "webp". */
-  extension?: string;
-  /**
-   * How the numbers are padded, e.g. 4 -> 0001.webp. Default 4.
-   */
-  padLength?: number;
-  /**
-   * Height of the scroll container in viewport units. Bigger = slower
-   * scrub (more scroll distance per frame). Default 400 (i.e. 400vh).
-   * Tune this first if the animation feels too fast/slow.
-   */
-  scrollHeightVh?: number;
-  /** Optional className applied to the outer scroll container. */
+type Props = {
+  frameCount?: number;
+  framePath?: string;
   className?: string;
-  /** Content rendered on top of the sticky canvas (captions, CTA, etc). */
-  children?: React.ReactNode;
-  /**
-   * Show a subtle scroll-progress indicator (vertical track + glowing dot)
-   * on the right edge of the sticky canvas, so the user knows they're
-   * inside a scroll-driven section and how far through it they are.
-   * Default true.
-   */
-  showProgress?: boolean;
 };
 
-/**
- * Apple-style scroll-linked image sequence.
- *
- * - Frames are painted onto a <canvas>, never <img> tags, so there's no
- *   layout thrash and we can control exactly what's on screen each tick.
- * - All frames are preloaded up front; a simple loading state is shown
- *   until that finishes.
- * - Scroll position within the tall wrapper is mapped to a frame index.
- *   Scrolling down increases the index (steps forward), scrolling up
- *   decreases it (steps back) — scroll is the play head.
- * - The canvas is `sticky` inside a tall (e.g. 400vh) wrapper, so it
- *   holds in place on screen while the user scrolls through the range
- *   that drives the animation.
- * - Painting happens inside requestAnimationFrame, and only when the
- *   target frame index actually changed, so a fast scroll doesn't spam
- *   redraws on every single scroll event.
- * - On mobile (<768px) we load every second frame to cut bandwidth/decoding
- *   cost, and re-map the scroll fraction onto that shorter set.
- * - If the user has prefers-reduced-motion set, we skip the animation
- *   entirely and just show one static frame.
- */
 export default function ScrollFrameSequence({
-  basePath,
-  frameCount,
-  extension = "webp",
-  padLength = 4,
-  scrollHeightVh = 400,
+  frameCount = 120,
+  framePath = "/frames/ezgif-frame-",
   className = "",
-  children,
-  showProgress = true,
-}: ScrollFrameSequenceProps) {
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const stageRef = useRef<HTMLDivElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const imagesRef = useRef<HTMLImageElement[]>([]);
-  const currentFrameRef = useRef(0);
+}: Props) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const framesRef = useRef<Map<number, HTMLImageElement>>(new Map());
+  const rafRef = useRef<number | null>(null);
+  const currentFrameRef = useRef(-1);
   const targetFrameRef = useRef(0);
-  const rafIdRef = useRef<number | null>(null);
-  const reducedMotionRef = useRef(false);
-  const progressDotRef = useRef<HTMLDivElement | null>(null);
-  const progressFillRef = useRef<HTMLDivElement | null>(null);
-
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadProgress, setLoadProgress] = useState(0);
+  const [loaded, setLoaded] = useState(0);
+  const [ready, setReady] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    reducedMotionRef.current = mediaQuery.matches;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReducedMotion(reduce.matches);
+    update();
+    reduce.addEventListener?.("change", update);
+    return () => reduce.removeEventListener?.("change", update);
+  }, []);
 
-    const isMobile = window.innerWidth < 768;
-    // On mobile, skip every second frame to halve decode/paint cost.
-    const step = isMobile ? 2 : 1;
-    const indices: number[] = [];
-    for (let i = 0; i < frameCount; i += step) indices.push(i);
-    // Always make sure the very last frame is included so the sequence
-    // ends on the true final frame rather than an early stand-in.
-    if (indices[indices.length - 1] !== frameCount - 1) {
-      indices.push(frameCount - 1);
-    }
-
-    const pad = (n: number) => String(n + 1).padStart(padLength, "0");
-    const urls = indices.map((i) => `${basePath}/${pad(i)}.${extension}`);
-
+  useEffect(() => {
     let cancelled = false;
-    let loadedCount = 0;
-    const loadedImages: HTMLImageElement[] = new Array(urls.length);
+    const mobile = window.innerWidth < 768;
+    const step = mobile && !reducedMotion ? 2 : 1;
+    const indices = Array.from({ length: frameCount }, (_, i) => i + 1).filter((i) => i % step === 0 || i === 1 || i === frameCount);
 
-    // Reduced motion: only load a single representative frame.
-    const urlsToLoad = reducedMotionRef.current
-      ? [urls[Math.floor(urls.length / 2)]]
-      : urls;
+    framesRef.current.clear();
+    setLoaded(0);
+    setReady(false);
 
-    urlsToLoad.forEach((url, idx) => {
-      const img = new Image();
-      img.src = url;
-      img.onload = () => {
-        if (cancelled) return;
-        loadedImages[idx] = img;
-        loadedCount += 1;
-        setLoadProgress(Math.round((loadedCount / urlsToLoad.length) * 100));
-        if (loadedCount === urlsToLoad.length) {
-          imagesRef.current = loadedImages;
-          setIsLoading(false);
-          drawFrame(0);
+    const load = async () => {
+      let count = 0;
+      await Promise.all(indices.map((index) => new Promise<void>((resolve) => {
+        const img = new Image();
+        img.decoding = "async";
+        img.onload = () => {
+          if (cancelled) return resolve();
+          framesRef.current.set(index, img);
+          count += 1;
+          setLoaded(count);
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = `${framePath}${String(index).padStart(3, "0")}.jpg`;
+      })));
+
+      if (!cancelled) {
+        setReady(true);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [frameCount, framePath, reducedMotion]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const section = sectionRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d", { alpha: false });
+    if (!ctx) return;
+
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      canvas.width = Math.max(1, Math.floor(width * dpr));
+      canvas.height = Math.max(1, Math.floor(height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      draw(targetFrameRef.current);
+    };
+
+    const draw = (requestedIndex: number) => {
+      const exact = framesRef.current.get(requestedIndex);
+      const frame = exact ?? findNearestLoaded(requestedIndex);
+      if (!frame) return;
+
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      const scale = Math.max(width / frame.naturalWidth, height / frame.naturalHeight);
+      const drawWidth = frame.naturalWidth * scale;
+      const drawHeight = frame.naturalHeight * scale;
+      const x = (width - drawWidth) / 2;
+      const y = (height - drawHeight) / 2;
+      ctx.fillStyle = "#080b0e";
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(frame, x, y, drawWidth, drawHeight);
+      currentFrameRef.current = requestedIndex;
+    };
+
+    const findNearestLoaded = (index: number) => {
+      if (framesRef.current.size === 0) return null;
+      let best: HTMLImageElement | null = null;
+      let distance = Infinity;
+      for (const [key, image] of framesRef.current) {
+        const nextDistance = Math.abs(key - index);
+        if (nextDistance < distance) {
+          best = image;
+          distance = nextDistance;
         }
-      };
-      img.onerror = () => {
-        if (cancelled) return;
-        loadedCount += 1;
-        if (loadedCount === urlsToLoad.length) {
-          imagesRef.current = loadedImages.filter(Boolean);
-          setIsLoading(false);
-        }
-      };
-    });
-
-    function drawFrame(index: number) {
-      const canvas = canvasRef.current;
-      const img = imagesRef.current[index];
-      if (!canvas || !img) return;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-
-      const dpr = window.devicePixelRatio || 1;
-      const targetW = canvas.clientWidth * dpr;
-      const targetH = canvas.clientHeight * dpr;
-      if (canvas.width !== targetW || canvas.height !== targetH) {
-        canvas.width = targetW;
-        canvas.height = targetH;
       }
+      return best;
+    };
 
-      // Cover-fit the frame into the canvas, keeping aspect ratio.
-      const canvasRatio = canvas.width / canvas.height;
-      const imgRatio = img.width / img.height;
-      let drawW = canvas.width;
-      let drawH = canvas.height;
-      let offsetX = 0;
-      let offsetY = 0;
+    const paint = () => {
+      rafRef.current = null;
+      const frame = reducedMotion ? 1 : targetFrameRef.current;
+      if (frame !== currentFrameRef.current) draw(frame);
+    };
 
-      if (imgRatio > canvasRatio) {
-        drawH = canvas.height;
-        drawW = drawH * imgRatio;
-        offsetX = (canvas.width - drawW) / 2;
-      } else {
-        drawW = canvas.width;
-        drawH = drawW / imgRatio;
-        offsetY = (canvas.height - drawH) / 2;
-      }
+    const onScroll = () => {
+      if (reducedMotion) return;
+      if (rafRef.current == null) rafRef.current = requestAnimationFrame(paint);
 
-      ctx.fillStyle = "#000000";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
-    }
+      if (!section) return;
+      const rect = section.getBoundingClientRect();
+      const travel = Math.max(1, section.offsetHeight - window.innerHeight);
+      const progress = Math.min(1, Math.max(0, -rect.top / travel));
+      targetFrameRef.current = Math.round(progress * (frameCount - 1)) + 1;
+    };
 
-    // Updated directly (no React state) so progress can move every tick
-    // without triggering re-renders — same reasoning as the canvas draw.
-    const progressFractionRef = { current: 0 };
-
-    function updateProgressUI() {
-      if (!showProgress) return;
-      const pct = Math.round(progressFractionRef.current * 100);
-      if (progressFillRef.current) {
-        progressFillRef.current.style.height = `${pct}%`;
-      }
-      if (progressDotRef.current) {
-        progressDotRef.current.style.top = `${pct}%`;
-      }
-    }
-
-    function renderLoop() {
-      if (currentFrameRef.current !== targetFrameRef.current) {
-        currentFrameRef.current = targetFrameRef.current;
-        drawFrame(currentFrameRef.current);
-        updateProgressUI();
-      }
-      rafIdRef.current = requestAnimationFrame(renderLoop);
-    }
-
-    function pinStage() {
-      const wrapper = wrapperRef.current;
-      const stage = stageRef.current;
-      if (!wrapper || !stage) return;
-
-      // Manual replacement for `position: sticky`. Sticky silently stops
-      // working the moment ANY ancestor has overflow other than "visible"
-      // (this page's <main> uses overflow-hidden for its decorative
-      // background layers), so instead we compute the three states of a
-      // sticky element by hand and apply them with fixed/absolute:
-      //   1. Wrapper hasn't reached the top of the viewport yet -> stage
-      //      sits at the top of the wrapper (absolute).
-      //   2. Wrapper spans the viewport -> stage is pinned to the screen
-      //      (fixed) while the wrapper scrolls underneath it.
-      //   3. Wrapper has scrolled past -> stage sits at the bottom of the
-      //      wrapper (absolute), so it scrolls away with the page normally.
-      const rect = wrapper.getBoundingClientRect();
-      const viewportH = window.innerHeight;
-
-      if (rect.top > 0) {
-        stage.style.position = "absolute";
-        stage.style.top = "0px";
-        stage.style.bottom = "";
-        stage.style.left = "0px";
-        stage.style.width = "100%";
-        stage.style.height = `${viewportH}px`;
-      } else if (rect.bottom <= viewportH) {
-        stage.style.position = "absolute";
-        stage.style.top = "";
-        stage.style.bottom = "0px";
-        stage.style.left = "0px";
-        stage.style.width = "100%";
-        stage.style.height = `${viewportH}px`;
-      } else {
-        stage.style.position = "fixed";
-        stage.style.top = "0px";
-        stage.style.bottom = "";
-        stage.style.left = "0px";
-        stage.style.width = "100%";
-        stage.style.height = `${viewportH}px`;
-      }
-    }
-
-    function onScroll() {
-      const wrapper = wrapperRef.current;
-      pinStage();
-      if (!wrapper || reducedMotionRef.current) return;
-
-      const rect = wrapper.getBoundingClientRect();
-      const totalScrollable = wrapper.offsetHeight - window.innerHeight;
-      if (totalScrollable <= 0) return;
-
-      // Fraction of the way through the tall wrapper, clamped 0..1.
-      // rect.top goes from 0 (wrapper just entered) to -totalScrollable
-      // (wrapper about to leave) as the user scrolls through it.
-      const scrolled = Math.min(
-        Math.max(-rect.top, 0),
-        totalScrollable
-      );
-      const fraction = scrolled / totalScrollable;
-      progressFractionRef.current = fraction;
-
-      const maxIndex = imagesRef.current.length - 1;
-      const nextIndex = Math.round(fraction * maxIndex);
-      targetFrameRef.current = Math.min(Math.max(nextIndex, 0), maxIndex);
-      updateProgressUI();
-    }
-
-    function onResize() {
-      pinStage();
-      drawFrame(currentFrameRef.current);
-    }
-
+    resize();
+    window.addEventListener("resize", resize, { passive: true });
     window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onResize);
-    rafIdRef.current = requestAnimationFrame(renderLoop);
     onScroll();
 
     return () => {
-      cancelled = true;
+      window.removeEventListener("resize", resize);
       window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onResize);
-      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [basePath, frameCount, extension, padLength]);
+  }, [frameCount, reducedMotion, ready]);
+
+  const progress = ready ? loaded / (reducedMotion || (typeof window !== "undefined" && window.innerWidth < 768) ? Math.ceil(frameCount / 2) : frameCount) : 0;
 
   return (
-    <div
-      ref={wrapperRef}
-      className={`relative ${className}`}
-      style={{ height: `${scrollHeightVh}vh` }}
-    >
-      <div
-        ref={stageRef}
-        className="z-20 h-screen w-full overflow-hidden bg-void"
-        style={{ position: "absolute", top: 0, left: 0, width: "100%" }}
-      >
-        <canvas ref={canvasRef} className="h-full w-full" />
+    <section ref={sectionRef} className={`relative h-[400vh] ${className}`} aria-label="Character creation scroll animation">
+      <div className="sticky top-0 h-screen w-full overflow-hidden bg-[#080b0e]">
+        <canvas ref={canvasRef} className="h-full w-full" aria-hidden="true" />
 
-        {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-void/80">
-            <div className="flex flex-col items-center gap-3">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-gold/30 border-t-gold" />
-              <p className="text-xs text-parchment/50">
-                Loading animation… {loadProgress}%
-              </p>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_46%,rgba(157,110,255,.08),transparent_31%),linear-gradient(180deg,rgba(3,5,7,.2),rgba(3,5,7,.64))]" />
+
+        {!ready && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#080b0e]/90 backdrop-blur-sm">
+            <div className="mb-4 h-px w-36 overflow-hidden bg-white/10">
+              <div className="h-full bg-violet-300 transition-[width] duration-200" style={{ width: `${progress * 100}%` }} />
             </div>
-          </div>
-        )}
-
-        {children && (
-          <div className="pointer-events-none absolute inset-0 z-10">
-            {children}
-          </div>
-        )}
-
-        {showProgress && !isLoading && (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute right-4 top-1/2 z-20 hidden h-[38%] w-px -translate-y-1/2 sm:right-6 sm:block lg:right-10"
-          >
-            {/* Static track */}
-            <div className="h-full w-full rounded-full bg-white/10" />
-            {/* Filled portion, grows top-down with scroll progress */}
-            <div
-              ref={progressFillRef}
-              className="absolute left-0 top-0 w-full rounded-full bg-gradient-to-b from-gold/80 to-gold-light/40 transition-[height] duration-75 ease-out"
-              style={{ height: "0%" }}
-            />
-            {/* Glowing dot marking the current position */}
-            <div
-              ref={progressDotRef}
-              className="absolute left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold-light shadow-[0_0_10px_2px_rgba(232,197,71,.7)] transition-[top] duration-75 ease-out"
-              style={{ top: "0%" }}
-            />
+            <p className="text-[10px] uppercase tracking-[0.28em] text-white/45">Preparing your character</p>
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 }
