@@ -105,21 +105,21 @@ export default function Home() {
       </header>
 
       <div className="relative">
-        <div className="absolute inset-x-0 top-0 z-20 h-screen pointer-events-none">
-          <div className="pointer-events-auto mx-auto flex h-full max-w-7xl items-center px-6 sm:px-8 lg:px-12">
-            <div className="max-w-xl pt-20 sm:pt-0">
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-[100svh]">
+          <div className="pointer-events-auto mx-auto flex h-full max-w-7xl items-start px-5 pt-28 sm:items-center sm:px-8 sm:pt-0 lg:px-12">
+            <div className="max-w-xl">
               <div className="animate-fade-in-up inline-flex items-center gap-2 rounded-full border border-violet-300/15 bg-violet-300/[0.06] px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.2em] text-violet-200">
                 <span className="h-1.5 w-1.5 rounded-full bg-violet-200 shadow-[0_0_16px_rgba(196,181,253,.8)]" />
                 Build something alive
               </div>
 
-              <h1 className="mt-6 max-w-lg animate-fade-in-up font-display text-[3.4rem] leading-[.93] tracking-[-0.05em] sm:text-6xl md:text-7xl lg:text-[5.6rem]">
+              <h1 className="mt-6 max-w-lg animate-fade-in-up font-display text-[3rem] leading-[.93] tracking-[-0.05em] sm:text-6xl md:text-7xl lg:text-[5.6rem]">
                 <span className="text-parchment">Your character</span>
                 <br />
                 <span className="text-violet-200">comes to life.</span>
               </h1>
 
-              <p className="mt-6 max-w-md animate-fade-in-up text-sm leading-6 text-parchment/55 sm:text-base" style={{ animationDelay: "100ms" }}>
+              <p className="mt-5 max-w-md animate-fade-in-up text-sm leading-6 text-parchment/55 sm:mt-6 sm:text-base" style={{ animationDelay: "100ms" }}>
                 Start with an idea. Shape their personality, memory and story — then watch the character reveal itself as you scroll.
               </p>
 

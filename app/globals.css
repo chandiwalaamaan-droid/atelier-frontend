@@ -1010,3 +1010,87 @@ body.chat-theme-ember {
     word-break: normal;
   }
 }
+
+/* ===== Cinematic live character hero ===== */
+.hero-sequence {
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(139, 92, 246, .075), transparent 34%),
+    radial-gradient(circle at 50% 72%, rgba(201, 162, 39, .045), transparent 38%),
+    #07090d;
+  perspective: 1200px;
+}
+.hero-sequence-bg {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(186, 142, 255, .14), transparent 17%),
+    radial-gradient(circle at 50% 58%, rgba(106, 57, 190, .10), transparent 34%),
+    linear-gradient(180deg, rgba(255,255,255,.012), transparent 20%, rgba(0,0,0,.28) 100%);
+  animation: hero-bg-breathe 8s ease-in-out infinite;
+}
+.hero-sequence-grid {
+  opacity: .11;
+  background-image:
+    linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px);
+  background-size: 90px 90px;
+  mask-image: radial-gradient(circle at center, black 0%, transparent 68%);
+}
+.hero-sequence-stage {
+  transform-style: preserve-3d;
+  will-change: transform;
+  transition: filter 320ms ease;
+  filter: contrast(1.04) saturate(1.05) brightness(1.035);
+}
+.hero-sequence-canvas {
+  transform: translateZ(0);
+  image-rendering: auto;
+}
+.hero-sequence-light {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at var(--cursor-x, 50%) var(--cursor-y, 50%), rgba(255,255,255,.07), transparent 18%);
+  mix-blend-mode: screen;
+  opacity: .55;
+}
+.hero-sequence-halo {
+  width: min(50vw, 700px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(183, 132, 255, .18) 0%, rgba(126, 73, 215, .07) 26%, transparent 66%);
+  filter: blur(28px);
+  animation: hero-halo-breathe 7s ease-in-out infinite;
+  pointer-events: none;
+}
+.hero-particle {
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(236, 222, 255, .88);
+  box-shadow: 0 0 12px rgba(199, 165, 255, .55);
+  animation: hero-particle-drift 7s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+@keyframes hero-bg-breathe {
+  0%, 100% { opacity: .78; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+@keyframes hero-halo-breathe {
+  0%, 100% { opacity: .72; transform: translate(-50%, -50%) scale(.94); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+}
+@keyframes hero-particle-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(.8); opacity: .2; }
+  50% { transform: translate3d(var(--particle-drift), -15px, 0) scale(1.18); opacity: .9; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-sequence-bg,
+  .hero-sequence-halo,
+  .hero-particle { animation: none; }
+  .hero-sequence-stage { transform: none !important; }
+}
+@media (max-width: 767px) {
+  .hero-sequence-grid { opacity: .075; background-size: 64px 64px; }
+  .hero-sequence-halo { width: min(90vw, 520px); filter: blur(22px); }
+  .hero-particle:nth-child(n + 15) { display: none; }
+}
