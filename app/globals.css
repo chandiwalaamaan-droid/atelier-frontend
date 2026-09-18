@@ -1303,12 +1303,32 @@ body.chat-theme-ember {
      cover-crops them on mobile (see the `mobile` branch of draw() in
      ScrollFrameSequence.tsx), so a taller portrait box here actually gets
      filled by the character instead of just being empty space. */
-  .hero-sequence-art { aspect-ratio: 3 / 4; width: min(440px, 88vw); max-height: 78svh; }
+  .hero-sequence-art {
+    aspect-ratio: 3 / 4;
+    width: min(440px, 88vw);
+    max-height: 78svh;
+    /* The canvas fills its ENTIRE box with a solid color before drawing the
+       cover-cropped frame on top, so on its own this is a flat, hard-edged
+       rectangle sitting on top of the page background — a "pasted sticker"
+       look — instead of the character floating in the scene. (Desktop
+       doesn't need this: its frames are already ~16:9 like the box, so
+       they fill it edge-to-edge with real content, and masking there would
+       crop the character instead of fixing anything.) Fading this box's
+       own edges to transparent lets the aurora/particle layers already
+       sitting behind it show through at the margins, so it blends instead
+       of looking cut out. */
+    -webkit-mask-image: radial-gradient(ellipse 68% 76% at 50% 44%, #000 52%, transparent 100%);
+    mask-image: radial-gradient(ellipse 68% 76% at 50% 44%, #000 52%, transparent 100%);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+  }
   .hero-orbit { width: 92vw; }
   .hero-orbit-two { width: 78vw; }
   .hero-sequence-halo { width: 66vw; }
   .hero-sequence-canvas,
-  .hero-sequence-canvas-glow { border-radius: 12px; }
+  .hero-sequence-canvas-glow { border-radius: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
