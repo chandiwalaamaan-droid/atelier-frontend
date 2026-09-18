@@ -197,27 +197,38 @@ export default function ScrollFrameSequence({
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, cssWidth, cssHeight);
-      // The source artwork is already a complete cinematic scene: character,
-      // particles and studio background are generated together with a fixed
-      // camera. Paint the whole frame full-bleed instead of placing the 16:9
-      // frame inside a separate rectangle. This is the key fix for the
-      // "video pasted on top" look.
+      // The source artwork is a complete 16:9 scene. On wide desktop
+      // viewports, cropping it with "cover" cuts off the character's head
+      // and feet. Fit the scene instead and bias it slightly to the right so
+      // the editorial copy owns the left side of the composition.
       const imageAspect = frame.naturalWidth / frame.naturalHeight;
       const canvasAspect = cssWidth / cssHeight;
-      let sx = 0;
-      let sy = 0;
-      let sWidth = frame.naturalWidth;
-      let sHeight = frame.naturalHeight;
+      const isWideDesktop = canvasAspect >= 1.45 && window.innerWidth >= 900;
 
-      if (imageAspect > canvasAspect) {
-        sWidth = frame.naturalHeight * canvasAspect;
-        sx = (frame.naturalWidth - sWidth) / 2;
-      } else if (imageAspect < canvasAspect) {
-        sHeight = frame.naturalWidth / canvasAspect;
-        sy = (frame.naturalHeight - sHeight) / 2;
+      if (isWideDesktop) {
+        const fitScale = Math.min(cssWidth / frame.naturalWidth, cssHeight / frame.naturalHeight);
+        const drawWidth = frame.naturalWidth * fitScale;
+        const drawHeight = frame.naturalHeight * fitScale;
+        const spareX = cssWidth - drawWidth;
+        const drawX = spareX * 0.78;
+        const drawY = (cssHeight - drawHeight) * 0.5;
+        ctx.drawImage(frame, 0, 0, frame.naturalWidth, frame.naturalHeight, drawX, drawY, drawWidth, drawHeight);
+      } else {
+        let sx = 0;
+        let sy = 0;
+        let sWidth = frame.naturalWidth;
+        let sHeight = frame.naturalHeight;
+
+        if (imageAspect > canvasAspect) {
+          sWidth = frame.naturalHeight * canvasAspect;
+          sx = (frame.naturalWidth - sWidth) * 0.42;
+        } else if (imageAspect < canvasAspect) {
+          sHeight = frame.naturalWidth / canvasAspect;
+          sy = (frame.naturalHeight - sHeight) * 0.5;
+        }
+
+        ctx.drawImage(frame, sx, sy, sWidth, sHeight, 0, 0, cssWidth, cssHeight);
       }
-
-      ctx.drawImage(frame, sx, sy, sWidth, sHeight, 0, 0, cssWidth, cssHeight);
 
       paintedFrameRef.current = requestedIndex;
     };
@@ -276,14 +287,17 @@ export default function ScrollFrameSequence({
       current.y += (target.y - current.y) * ease;
 
       const seconds = time / 1000;
-      // Keep the cinematic background locked in place. Only a microscopic
-      // breathing scale is applied, so the character feels alive without
-      // the entire rectangular scene visibly sliding around.
-      const scale = 1.001 + Math.sin(seconds * 0.82) * 0.0015;
-      stage.style.transform = `scale(${scale})`;
+      // Add a restrained living quality to the scene: tiny float, breathing
+      // scale, and cursor parallax. Scroll remains the dominant motion.
+      const floatY = Math.sin(seconds * 0.85) * 2.4;
+      const floatX = Math.cos(seconds * 0.58) * 1.1;
+      const scale = 1.001 + Math.sin(seconds * 0.82) * 0.0022;
+      const tiltX = current.y * -1.15;
+      const tiltY = current.x * 1.25;
+      stage.style.transform = `translate3d(${floatX + current.x * 5}px, ${floatY + current.y * 3}px, 0) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(${scale})`;
       stage.style.setProperty("--cursor-x", `${50 + current.x * 28}%`);
       stage.style.setProperty("--cursor-y", `${50 + current.y * 24}%`);
-      stage.style.setProperty("--float-angle", `${seconds * 4}deg`);
+
     };
 
     window.addEventListener("scroll", updateFromScroll, { passive: true });
@@ -366,7 +380,7 @@ export default function ScrollFrameSequence({
               aria-hidden="true"
               decoding="async"
               fetchPriority="high"
-              className="hero-sequence-fallback absolute inset-0 h-full w-full object-cover"
+              className="hero-sequence-fallback absolute inset-0 h-full w-full object-contain"
             />
             <canvas ref={canvasRef} className="hero-sequence-canvas absolute inset-0 z-[2] block h-full w-full" />
             <div className="hero-sequence-light" />
