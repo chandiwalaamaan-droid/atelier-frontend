@@ -51,16 +51,23 @@ export default function ScrollFrameSequence({
 
   const [loaded, setLoaded] = useState(0);
   const [ready, setReady] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
-  const [mobile, setMobile] = useState(false);
+  // Lazily read the real values on first client render instead of always
+  // starting at `false` and correcting a moment later in an effect. That
+  // correction used to fire *after* the frame-loading effect below had
+  // already kicked off a full "desktop" load (all 120 frames, concurrency
+  // 8) — which then got thrown away and restarted with the right mobile
+  // settings a tick later. On phones that meant briefly fetching frames
+  // that were never going to be used, and delayed frame 1 (the one thing
+  // visible on load) behind a wasted restart.
+  const [reducedMotion, setReducedMotion] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
+  const [mobile, setMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     const updateMotion = () => setReducedMotion(media.matches);
     const updateViewport = () => setMobile(window.innerWidth < 768);
-    updateMotion();
-    updateViewport();
-
     media.addEventListener?.("change", updateMotion);
     window.addEventListener("resize", updateViewport, { passive: true });
     return () => {
@@ -96,6 +103,11 @@ export default function ScrollFrameSequence({
       new Promise<void>((resolve) => {
         const img = new Image();
         img.decoding = "async";
+        // Frame 1 is the only frame visible the instant the page loads (before
+        // any scrolling) — pin it to high fetch priority so the browser's
+        // network stack serves its bytes ahead of the other ~60-120 frames
+        // that are all requested around the same time.
+        img.fetchPriority = index === 1 ? "high" : "low";
         img.onload = async () => {
           if (cancelled) return resolve();
           try {
@@ -192,31 +204,56 @@ export default function ScrollFrameSequence({
       if (!frame) return;
       const { cssWidth, cssHeight, dpr } = resizeCanvas();
 
-      // The art is intentionally contained, not cover-cropped. The original
-      // 1280x720 frames are kept close to native scale on desktop so the
-      // character does not become soft from unnecessary enlargement.
-      const imageAspect = frame.naturalWidth / frame.naturalHeight;
-      let drawWidth = cssWidth;
-      let drawHeight = cssWidth / imageAspect;
-      if (drawHeight > cssHeight) {
-        drawHeight = cssHeight;
-        drawWidth = cssHeight * imageAspect;
-      }
-
-      const x = (cssWidth - drawWidth) / 2;
-      const y = (cssHeight - drawHeight) / 2;
-
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.fillStyle = "#05070b";
       ctx.fillRect(0, 0, cssWidth, cssHeight);
-      ctx.drawImage(frame, x, y, drawWidth, drawHeight);
-
-      // A separate glow pass makes the luminous edge feel richer without
-      // putting a blur filter over the crisp character itself.
       glowCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
       glowCtx.clearRect(0, 0, cssWidth, cssHeight);
       glowCtx.globalAlpha = 0.9;
-      glowCtx.drawImage(frame, x, y, drawWidth, drawHeight);
+
+      if (mobile) {
+        // On phones the art box is portrait, but the source frames are a
+        // fixed 1280x720 landscape canvas with the character centered in
+        // the middle third. Contain-fitting that landscape frame into a
+        // portrait box left the character tiny inside a short, letterboxed
+        // strip ("PC-style" box on a phone screen). Cover-crop instead:
+        // fill the whole portrait box and crop the wide black margins off
+        // the sides, keeping the full vertical extent where the character
+        // actually is.
+        const containerAspect = cssWidth / cssHeight;
+        const imageAspect = frame.naturalWidth / frame.naturalHeight;
+        let sx: number, sy: number, sWidth: number, sHeight: number;
+        if (imageAspect > containerAspect) {
+          sHeight = frame.naturalHeight;
+          sWidth = sHeight * containerAspect;
+          sx = (frame.naturalWidth - sWidth) / 2;
+          sy = 0;
+        } else {
+          sWidth = frame.naturalWidth;
+          sHeight = sWidth / containerAspect;
+          sx = 0;
+          sy = (frame.naturalHeight - sHeight) / 2;
+        }
+        ctx.drawImage(frame, sx, sy, sWidth, sHeight, 0, 0, cssWidth, cssHeight);
+        // A separate glow pass makes the luminous edge feel richer without
+        // putting a blur filter over the crisp character itself.
+        glowCtx.drawImage(frame, sx, sy, sWidth, sHeight, 0, 0, cssWidth, cssHeight);
+      } else {
+        // Desktop: the art is intentionally contained, not cover-cropped.
+        // The original 1280x720 frames are kept close to native scale so
+        // the character does not become soft from unnecessary enlargement.
+        const imageAspect = frame.naturalWidth / frame.naturalHeight;
+        let drawWidth = cssWidth;
+        let drawHeight = cssWidth / imageAspect;
+        if (drawHeight > cssHeight) {
+          drawHeight = cssHeight;
+          drawWidth = cssHeight * imageAspect;
+        }
+        const x = (cssWidth - drawWidth) / 2;
+        const y = (cssHeight - drawHeight) / 2;
+        ctx.drawImage(frame, x, y, drawWidth, drawHeight);
+        glowCtx.drawImage(frame, x, y, drawWidth, drawHeight);
+      }
 
       paintedFrameRef.current = requestedIndex;
     };
@@ -314,9 +351,7 @@ export default function ScrollFrameSequence({
       drawRafRef.current = null;
       motionRafRef.current = null;
     };
-  }, [frameCount, ready, reducedMotion]);
-
-  const progress = frameIndices.length ? Math.min(1, loaded / frameIndices.length) : 0;
+  }, [frameCount, ready, reducedMotion, mobile]);
 
   return (
     <section
@@ -361,26 +396,29 @@ export default function ScrollFrameSequence({
           aria-hidden="true"
         >
           <div className="hero-sequence-art relative aspect-video w-[min(1320px,calc(100vw-32px))] max-h-[84svh]">
+            {/* Native <img>, not the canvas engine below: this paints as soon
+                as the browser can decode it — during initial HTML parsing,
+                before React hydrates, before any of our loading/effect code
+                runs at all. It sits underneath both canvases at the same
+                position, so the instant the canvas engine is ready and draws
+                its first frame (opaque, same image), it covers this exactly
+                and the swap is invisible. This is what makes the character
+                show up "the moment the page loads" rather than waiting on JS. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`${framePath}001.webp`}
+              alt=""
+              aria-hidden="true"
+              decoding="async"
+              fetchPriority="high"
+              className="absolute inset-0 h-full w-full object-cover md:object-contain"
+            />
             <canvas ref={glowCanvasRef} className="hero-sequence-canvas-glow absolute inset-0 block h-full w-full" />
             <canvas ref={canvasRef} className="hero-sequence-canvas relative z-[2] block h-full w-full" />
             <div className="hero-sequence-light" />
             <div className="hero-sequence-sheen" />
           </div>
         </div>
-
-        {!ready && (
-          <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#05070b]">
-            <div className="text-center">
-              <div className="mx-auto h-11 w-11 rounded-full border border-violet-200/15 border-t-violet-200/80 animate-spin" />
-              <p className="mt-4 text-[10px] uppercase tracking-[0.3em] text-white/45">
-                Preparing your character
-              </p>
-              <div className="mx-auto mt-3 h-1 w-28 overflow-hidden rounded-full bg-white/[0.07]">
-                <div className="h-full rounded-full bg-violet-200/60 transition-[width] duration-300" style={{ width: `${Math.max(6, progress * 100)}%` }} />
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-52 bg-gradient-to-t from-[#05070b] via-[#05070b]/40 to-transparent" />
         <div className="pointer-events-none absolute inset-0 z-20 bg-[radial-gradient(circle_at_center,transparent_28%,rgba(2,4,8,.16)_62%,rgba(2,4,8,.66)_100%)]" />

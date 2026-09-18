@@ -1297,7 +1297,13 @@ body.chat-theme-ember {
 }
 
 @media (max-width: 767px) {
-  .hero-sequence-art { width: min(1120px, calc(100vw - 16px)); max-height: 76svh; }
+  /* Was a fixed 16:9 desktop-style box shrunk to phone width, which made
+     the art area a short landscape strip on portrait screens. The frame
+     images are a 1280x720 landscape canvas, but ScrollFrameSequence now
+     cover-crops them on mobile (see the `mobile` branch of draw() in
+     ScrollFrameSequence.tsx), so a taller portrait box here actually gets
+     filled by the character instead of just being empty space. */
+  .hero-sequence-art { aspect-ratio: 3 / 4; width: min(440px, 88vw); max-height: 78svh; }
   .hero-orbit { width: 92vw; }
   .hero-orbit-two { width: 78vw; }
   .hero-sequence-halo { width: 66vw; }
