@@ -1307,22 +1307,27 @@ body.chat-theme-ember {
     aspect-ratio: 3 / 4;
     width: min(440px, 88vw);
     max-height: 78svh;
-    /* The canvas fills its ENTIRE box with a solid color before drawing the
-       cover-cropped frame on top, so on its own this is a flat, hard-edged
-       rectangle sitting on top of the page background — a "pasted sticker"
-       look — instead of the character floating in the scene. (Desktop
-       doesn't need this: its frames are already ~16:9 like the box, so
-       they fill it edge-to-edge with real content, and masking there would
-       crop the character instead of fixing anything.) Fading this box's
-       own edges to transparent lets the aurora/particle layers already
-       sitting behind it show through at the margins, so it blends instead
-       of looking cut out. */
-    -webkit-mask-image: radial-gradient(ellipse 68% 76% at 50% 44%, #000 52%, transparent 100%);
-    mask-image: radial-gradient(ellipse 68% 76% at 50% 44%, #000 52%, transparent 100%);
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
-    -webkit-mask-size: 100% 100%;
-    mask-size: 100% 100%;
+  }
+  /* The canvas fills its ENTIRE box with a solid color before drawing the
+     cover-cropped frame on top, so on its own the box is a flat, hard-edged
+     rectangle sitting on top of the page background — a "pasted sticker"
+     look — instead of the character floating in the scene. (Desktop doesn't
+     need this: its frames are already ~16:9 like the box, so they fill it
+     edge-to-edge with real content, and vignetting there would darken the
+     character instead of fixing anything.)
+     A `mask-image` fade was tried here first but mobile support for CSS
+     masking is inconsistent, and it visibly did nothing on-device. This
+     uses a plain gradient overlay instead — universally supported, no
+     compositing feature detection needed — painted on top of the box's
+     edges in roughly the same dark tone as the page background behind it
+     (see `.hero-sequence-bg`), so the edges blend rather than cutting off. */
+  .hero-sequence-art::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    pointer-events: none;
+    background: radial-gradient(ellipse 62% 68% at 50% 42%, transparent 42%, #05070b 86%);
   }
   .hero-orbit { width: 92vw; }
   .hero-orbit-two { width: 78vw; }
