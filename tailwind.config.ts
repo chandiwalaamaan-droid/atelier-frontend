@@ -1,5 +1,4 @@
 import type { Config } from "tailwindcss";
-import colors from "tailwindcss/colors";
 
 const config: Config = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
@@ -13,33 +12,20 @@ const config: Config = {
         gold: "#c9a227",
         "gold-light": "#e8c547",
         "gold-bright": "#f5d76e",
+        rose: "#b5657a",
+        "rose-light": "#d97a9a",
+        "rose-deep": "#8a3d54",
         void: "#0a0a0c",
         "void-light": "#0f0f14",
         "surface-raised": "#121218",
         "surface-card": "#18181f",
         "surface-hover": "#1e1e26",
-        // Accent colors for character variety.
-        // BUG FIX: amber/violet/fuchsia/cyan/emerald/rose are also Tailwind's
-        // built-in color families, each with a full 50–950 shade scale (e.g.
-        // `violet-200`, `rose-500`). Assigning a plain hex string to these
-        // keys (as this file used to) replaces the *entire* built-in family
-        // with a single flat color, so any shaded utility like `text-violet-200`
-        // or `border-rose-500/30` used elsewhere in the app silently generates
-        // no CSS at all (the class exists in the markup but has zero styling).
-        // Spreading the real Tailwind scale and only overriding `DEFAULT` keeps
-        // `bg-rose` / `text-violet` etc. matching the app's brand tone while
-        // restoring every `-50` through `-950` shade for use elsewhere.
-        amber: { ...colors.amber, DEFAULT: "#f59e0b" },
-        violet: { ...colors.violet, DEFAULT: "#8b5cf6" },
-        fuchsia: { ...colors.fuchsia, DEFAULT: "#d946ef" },
-        cyan: { ...colors.cyan, DEFAULT: "#06b6d4" },
-        emerald: { ...colors.emerald, DEFAULT: "#10b981" },
-        rose: {
-          ...colors.rose,
-          DEFAULT: "#b5657a",
-          light: "#d97a9a",
-          deep: "#8a3d54",
-        },
+        // Accent colors for character variety
+        amber: "#f59e0b",
+        violet: "#8b5cf6",
+        fuchsia: "#d946ef",
+        cyan: "#06b6d4",
+        emerald: "#10b981",
       },
       fontFamily: {
         display: ["var(--font-fraunces)", "serif"],
