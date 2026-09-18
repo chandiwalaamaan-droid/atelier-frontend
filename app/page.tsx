@@ -10,6 +10,16 @@ import Logo from "@/components/Logo";
 
 import ScrollFrameSequence from "@/components/ScrollFrameSequence";
 
+// Hover glow color per character, keyed to each character's `accent` above.
+// (Previously `accent` was set on every character but never read anywhere,
+// so every card showed the same gold glow regardless of its assigned tone.)
+const ACCENT_GLOW: Record<string, string> = {
+  violet: "rgba(139,92,246,.18)",
+  rose: "rgba(181,101,122,.18)",
+  cyan: "rgba(6,182,212,.18)",
+  amber: "rgba(245,158,11,.18)",
+};
+
 const FEATURED_CHARACTERS = [
   {
     name: "Sukuna",
@@ -58,7 +68,12 @@ export default function Home() {
   useEffect(() => {
     let cancelled = false;
     const cached = getCachedUser();
-    if (cached?.user) {
+    // Only trust the cache without a network round trip when it's both
+    // present AND fresh (checked in the last 60s — see lib/authCache.ts).
+    // A stale "authed" cache used to be trusted outright here, which could
+    // instantly bounce someone with an expired session over to /explore
+    // instead of keeping them on the (correct) logged-out landing page.
+    if (cached?.user && cached.fresh) {
       setAuthStatus("authed");
     } else {
       fetchAndCacheUser().then((user) => {
@@ -107,13 +122,13 @@ export default function Home() {
       <div className="relative">
         <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-[100svh]">
           <div className="pointer-events-auto mx-auto flex h-full max-w-7xl items-start px-5 pt-28 sm:items-center sm:px-8 sm:pt-0 lg:px-12">
-            <div className="max-w-xl">
+            <div className="max-w-[34rem]">
               <div className="animate-fade-in-up inline-flex items-center gap-2 rounded-full border border-violet-300/15 bg-violet-300/[0.06] px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.2em] text-violet-200">
                 <span className="h-1.5 w-1.5 rounded-full bg-violet-200 shadow-[0_0_16px_rgba(196,181,253,.8)]" />
                 Build something alive
               </div>
 
-              <h1 className="mt-6 max-w-lg animate-fade-in-up font-display text-[3rem] leading-[.93] tracking-[-0.05em] sm:text-6xl md:text-7xl lg:text-[5.6rem]">
+              <h1 className="mt-6 max-w-[10ch] animate-fade-in-up font-display text-[3rem] leading-[.91] tracking-[-0.055em] sm:text-6xl md:text-7xl lg:text-[5.35rem]">
                 <span className="text-parchment">Your character</span>
                 <br />
                 <span className="text-violet-200">comes to life.</span>
@@ -141,7 +156,7 @@ export default function Home() {
           </div>
         </div>
 
-        <ScrollFrameSequence />
+        <ScrollFrameSequence scrollHeight="440vh" />
       </div>
 
       <section className="relative z-10 border-y border-white/[0.06] bg-black/20 px-4 py-6 backdrop-blur-md sm:px-8 sm:py-5 lg:px-12">
@@ -181,7 +196,10 @@ export default function Home() {
                   <p className="font-display text-sm leading-tight sm:text-base">{char.name}</p>
                   <p className="mt-1 truncate text-[10px] text-parchment/45">{char.tagline}</p>
                 </div>
-                <div className="absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100" style={{ boxShadow: "inset 0 0 45px rgba(201,162,39,.16)" }} />
+                <div
+                  className="absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                  style={{ boxShadow: `inset 0 0 45px ${ACCENT_GLOW[char.accent] ?? "rgba(201,162,39,.16)"}` }}
+                />
               </TiltCard>
             </Link>
           ))}
