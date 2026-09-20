@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useChatViewport } from "@/lib/useChatViewport";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiFetch, resolveMediaUrl } from "@/lib/api";
@@ -35,6 +36,7 @@ const NAV: { href: string; label: string; icon: string; badge?: string }[] = [
 
 export default function AppShell({ children, variant = "default" }: AppShellProps) {
   const pathname = usePathname();
+  const viewportRef = useChatViewport(variant === "chat");
   const [chats, setChats] = useState<ChatPreview[]>([]);
   const [displayName, setDisplayName] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -56,7 +58,7 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
   }, [pathname]);
 
   return (
-    <div className="rp-app-shell min-h-dvh flex bg-void text-parchment">
+    <div ref={viewportRef} data-chat={variant === "chat"} className="rp-app-shell min-h-dvh flex bg-void text-parchment">
       <aside className="hidden md:flex w-[260px] shrink-0 flex-col border-r border-white/5 bg-gradient-to-b from-surface-raised via-surface-raised to-plum-deep/40 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-gold/5 to-transparent opacity-30 pointer-events-none" />
         
@@ -153,7 +155,7 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
         </div>
       </aside>
 
-      <div className={`flex-1 flex flex-col min-w-0 ${variant === "chat" ? "h-dvh" : "min-h-screen"}`}>
+      <div className={`rp-shell-content flex-1 flex flex-col min-w-0 ${variant === "chat" ? "h-dvh" : "min-h-screen"}`}>
         {variant !== "chat" && (
           <>
             {/* Mobile top bar */}

@@ -199,6 +199,7 @@ export default function ChatPage() {
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const followLatestRef = useRef(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const quickActionsRef = useRef<HTMLDivElement>(null);
@@ -220,6 +221,7 @@ export default function ChatPage() {
   }, [openMenuId]);
 
   useEffect(() => {
+    followLatestRef.current = true;
     setCharacter(null);
     setMessages([]);
     setInput("");
@@ -322,25 +324,37 @@ export default function ChatPage() {
   const displayEngineId = roleplayPrefs.engineId ?? resolveEngineId(roleplayPrefs);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
-    // block: "nearest" only scrolls as far as needed to reveal the bottom
-    // marker. The default ("start") tries to align it with the top of the
-    // viewport instead, which over-scrolls on every streamed chunk during
-    // a reply and was dragging the whole page (composer included) upward
-    // while the reply generated.
-    bottomRef.current?.scrollIntoView({ behavior, block: "nearest" });
+    const el = scrollRef.current;
+    if (!el) return;
+    followLatestRef.current = true;
+    el.scrollTo({ top: el.scrollHeight, behavior });
   }, []);
+
+  useEffect(() => {
+    if (!followLatestRef.current) return;
+    const frame = requestAnimationFrame(() => scrollToBottom("auto"));
+    return () => cancelAnimationFrame(frame);
+  }, [messages, scrollToBottom]);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 200;
-    if (nearBottom) scrollToBottom("auto");
-  }, [messages, scrollToBottom]);
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      if (!followLatestRef.current) return;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => scrollToBottom("auto"));
+    });
+    observer.observe(el);
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+  }, [character?.id, scrollToBottom]);
 
   function onScroll() {
     const el = scrollRef.current;
     if (!el) return;
-    setShowJump(el.scrollHeight - el.scrollTop - el.clientHeight > 300);
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    followLatestRef.current = distance < 120;
+    setShowJump(distance > 180);
   }
 
   function showToast(text: string) {
@@ -349,12 +363,34 @@ export default function ChatPage() {
     toastTimer.current = setTimeout(() => setToast(""), 3500);
   }
 
-  function autoResize() {
+  const autoResize = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
-    el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 160) + "px";
-  }
+    const style = getComputedStyle(el);
+    const minimum = parseFloat(style.minHeight) || 64;
+    const maximum = Math.max(minimum, Math.min(200, (window.visualViewport?.height ?? window.innerHeight) * 0.3));
+    el.style.maxHeight = `${maximum}px`;
+    el.style.height = "0px";
+    const wanted = el.scrollHeight + (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0);
+    el.style.height = `${Math.max(minimum, Math.min(wanted, maximum))}px`;
+    el.style.overflowY = wanted > maximum ? "auto" : "hidden";
+  }, []);
+
+  // Covers typing, restored drafts, scene starters, and orientation/keyboard changes.
+  useEffect(() => { autoResize(); }, [input, character?.id, autoResize]);
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    let width = 0;
+    const observer = new ResizeObserver(entries => {
+      const next = entries[0]?.contentRect.width ?? 0;
+      if (next !== width) { width = next; autoResize(); }
+    });
+    observer.observe(el);
+    window.addEventListener("resize", autoResize);
+    window.visualViewport?.addEventListener("resize", autoResize);
+    return () => { observer.disconnect(); window.removeEventListener("resize", autoResize); window.visualViewport?.removeEventListener("resize", autoResize); };
+  }, [character?.id, autoResize]);
 
   const lastActionRef = useRef<{ type: "send"; text: string; sceneDirective?: string; requestId: string } | { type: "regenerate" } | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -530,6 +566,7 @@ export default function ChatPage() {
     setError("");
     sendingRef.current = true;
     setSending(true);
+    followLatestRef.current = true;
     const requestId = crypto.randomUUID();
     lastActionRef.current = { type: "send", text: userText, sceneDirective, requestId };
 
@@ -627,7 +664,6 @@ export default function ChatPage() {
     setSending(true);
     const userText = input.trim();
     updateDraft("");
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
     await sendMessage(userText);
   }
 
@@ -977,11 +1013,11 @@ export default function ChatPage() {
           <header className="px-3 sm:px-4 md:px-6 py-2 border-b border-white/10 shrink-0 bg-gradient-to-r from-surface-raised to-plum-deep/30">
             {character && (
               <div className="flex items-center justify-between gap-2">
-                <button onClick={() => router.push("/explore")} className="text-parchment/60 hover:text-gold focus-ring rounded px-2 py-1 transition-colors shrink-0">
+                <button onClick={() => router.push("/explore")} aria-label="Back to explore" className="rp-header-back text-parchment/60 hover:text-gold focus-ring rounded px-2 py-1 transition-colors shrink-0">
                   ←
                 </button>
 
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="rp-chat-identity flex items-center gap-2 min-w-0">
                   <div
                     className="relative w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-full overflow-hidden cursor-pointer ring-1 ring-white/10"
                     style={{ backgroundColor: `${character.accentColor}30` }}
@@ -1011,7 +1047,7 @@ export default function ChatPage() {
                   </div>
                 </div>
 
-                <div className="relative chat-menu">
+                <div className="relative chat-menu shrink-0">
                   <button
                     type="button"
                     onClick={() => setChatMenuOpen((s) => !s)}
@@ -1118,7 +1154,7 @@ export default function ChatPage() {
               const userInitial = (story.personaName || currentUser?.displayName || "You").charAt(0).toUpperCase();
 
               return (
-                <div id={`message-${m.id}`} key={m.id} className={`rp-message group message-slide-in flex gap-2 sm:gap-3 ${m.role === "user" ? "flex-row-reverse" : ""} ${searchOpen && searchText.trim() && m.content.toLowerCase().includes(searchText.toLowerCase().trim()) ? "rp-search-match" : ""}`}>
+                <div data-role={m.role} id={`message-${m.id}`} key={m.id} className={`rp-message group message-slide-in flex gap-2 sm:gap-3 ${m.role === "user" ? "flex-row-reverse" : ""} ${searchOpen && searchText.trim() && m.content.toLowerCase().includes(searchText.toLowerCase().trim()) ? "rp-search-match" : ""}`}>
                   {/* Avatar */}
                   {m.role === "assistant" ? (
                     <div
@@ -1139,7 +1175,7 @@ export default function ChatPage() {
                   )}
 
                   {/* Content */}
-                  <div className={`flex-1 min-w-0 flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
+                  <div className={`rp-message-content flex-1 min-w-0 flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
                     {/* Name + badge + time */}
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-medium text-sm text-parchment/90 truncate">
@@ -1155,7 +1191,7 @@ export default function ChatPage() {
 
                     {/* Bubble */}
                     {isEditing ? (
-                      <div className="max-w-[85%] sm:max-w-lg rounded-2xl bg-plum-deep/90 border border-gold/30 p-3 shadow-lg">
+                      <div className="rp-message-editor max-w-[85%] sm:max-w-lg rounded-2xl bg-plum-deep/90 border border-gold/30 p-3 shadow-lg">
                         <textarea
                           ref={editTextareaRef}
                           autoFocus
@@ -1195,7 +1231,7 @@ export default function ChatPage() {
                     ) : (
                       <div
                         aria-live={isLastAssistant ? "polite" : undefined}
-                        className={`max-w-[85%] sm:max-w-lg px-4 py-3 rounded-2xl whitespace-pre-wrap break-words ${
+                        className={`rp-message-bubble max-w-[85%] sm:max-w-lg px-4 py-3 rounded-2xl whitespace-pre-wrap break-words ${
                           m.role === "user"
                             ? "chat-bubble-user rounded-tr-sm"
                             : "chat-bubble-assistant rounded-tl-sm"
@@ -1216,7 +1252,7 @@ export default function ChatPage() {
 
                     {/* Reactions */}
                     {m.content && !isEditing && (
-                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                      <div className="rp-reactions flex flex-wrap items-center gap-1.5 mt-1.5">
                         {REACTION_EMOJIS.map((emoji) => {
                           const existing = msgReactions.find((r) => r.emoji === emoji);
                           return (
@@ -1236,11 +1272,11 @@ export default function ChatPage() {
 
                     {/* Actions */}
                     {m.content && !isEditing && (
-                      <div className="flex items-center gap-3 mt-1 text-xs text-parchment/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="rp-message-actions flex items-center gap-3 mt-1 text-xs text-parchment/40 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
                         <div className="relative message-menu">
                           <button
                             onClick={() => toggleMenu(m.id)}
-                            className="hover:text-gold focus-ring rounded px-1"
+                            className="rp-message-options hover:text-gold focus-ring rounded px-1"
                             aria-label="Message options"
                           >
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
@@ -1306,7 +1342,7 @@ export default function ChatPage() {
 
           {/* Quick Actions Bar */}
           {showQuickActions && (
-            <div ref={quickActionsRef} className="px-4 md:px-12 pb-2">
+            <div ref={quickActionsRef} className="rp-chat-shortcuts px-4 md:px-12 pb-2">
               <div className="quick-actions-bar max-w-3xl mx-auto">
                 <button
                   onClick={() => setShowQuickActions(false)}
@@ -1365,7 +1401,7 @@ export default function ChatPage() {
 
           {/* Scenario Actions Bar */}
           {showScenarioActions && (
-            <div className="px-4 md:px-12 pb-2">
+            <div className="rp-chat-shortcuts px-4 md:px-12 pb-2">
               <div className="quick-actions-bar max-w-3xl mx-auto">
                 <button
                   onClick={() => setShowScenarioActions(false)}
@@ -1488,7 +1524,7 @@ export default function ChatPage() {
           )}
 
           {error && (
-            <div className="px-4 sm:px-6 py-2 mb-1 flex items-center gap-3 text-sm">
+            <div className="rp-chat-error px-4 sm:px-6 py-2 mb-1 flex items-center gap-3 text-sm">
               <p className="text-rose">{error}</p>
               {lastActionRef.current && (
                 <button
@@ -1502,46 +1538,48 @@ export default function ChatPage() {
             </div>
           )}
 
-          <form onSubmit={onSend} className="rp-composer flex gap-2 px-4 sm:px-6 py-3 sm:py-4 border-t border-parchment/10 items-end shrink-0">
-            <div className="flex-1 relative">
+          <form onSubmit={onSend} className="rp-composer">
+            <div className="rp-composer-input">
               <textarea
                 ref={textareaRef}
                 value={input}
                 onChange={(e) => {
                   updateDraft(e.target.value.slice(0, MAX_MESSAGE_LENGTH));
-                  autoResize();
                 }}
                 onKeyDown={onKeyDown}
                 aria-label={`Message ${character.name}`}
                 placeholder={`Write to ${character.name}…`}
-                rows={1}
-                className="w-full rounded-2xl bg-plum-deep/80 border border-parchment/15 px-4 py-2.5 text-sm focus-ring resize-none max-h-40 overflow-y-auto"
+                rows={2}
+                maxLength={MAX_MESSAGE_LENGTH}
+                className="rp-message-input focus-ring"
               />
             </div>
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <div className="rp-composer-controls">
               <button
                 type="button"
-                onClick={() => setShowQuickActions((s) => !s)}
+                onClick={() => { setShowQuickActions(s => !s); setShowScenarioActions(false); }}
+                aria-expanded={showQuickActions}
                 className="text-parchment/50 hover:text-parchment/80 focus-ring rounded px-2 py-2.5 transition-colors"
                 title="Quick actions"
                 aria-label="Toggle quick actions"
               >
-                ⚡
+                <span aria-hidden="true">⚡</span><span className="rp-composer-tool-label">Tools</span>
               </button>
               <button
                 type="button"
-                onClick={() => setShowScenarioActions((s) => !s)}
+                onClick={() => { setShowScenarioActions(s => !s); setShowQuickActions(false); }}
+                aria-expanded={showScenarioActions}
                 className="text-parchment/50 hover:text-gold focus-ring rounded px-2 py-2.5 transition-colors"
                 title="Scenario actions"
                 aria-label="Toggle scenario actions"
               >
-                🎭
+                <span aria-hidden="true">✧</span><span className="rp-composer-tool-label">Actions</span>
               </button>
               {sending ? (
                 <button
                   type="button"
                   onClick={stopGenerating}
-                  className="bg-rose/90 text-ink px-4 py-2.5 rounded-full text-sm font-medium hover:brightness-110 focus-ring shrink-0"
+                  className="rp-send-button bg-rose/90 text-ink focus-ring"
                 >
                   ■ Stop
                 </button>
@@ -1549,7 +1587,7 @@ export default function ChatPage() {
                 <button
                   type="submit"
                   disabled={!input.trim()}
-                  className="bg-gold text-ink px-4 py-2.5 rounded-full text-sm font-medium hover:brightness-110 focus-ring disabled:opacity-50 shrink-0"
+                  className="rp-send-button bg-gold text-ink focus-ring disabled:opacity-50"
                 >
                   Send
                 </button>

@@ -3,6 +3,7 @@ import { Fraunces, Inter } from "next/font/google";
 import Script from "next/script";
 import PwaRegister from "@/components/PwaRegister";
 import "./globals.css";
+import "./mobile.css";
 
 const GA_MEASUREMENT_ID = "G-CZH3JSJ6Y0";
 
@@ -51,6 +52,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
   interactiveWidget: "resizes-content",
   themeColor: "#0a0a0c",
 };

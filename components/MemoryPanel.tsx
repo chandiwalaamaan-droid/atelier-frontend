@@ -87,13 +87,14 @@ export default function MemoryPanel({ open, characterId, characterName, onClose 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/70 px-6" onClick={onClose}>
+    <div className="rp-modal-overlay fixed inset-0 z-40 flex items-center justify-center bg-ink/70 px-6" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="glass-panel w-full max-w-lg rounded-2xl p-6 shadow-2xl max-h-[80vh] flex flex-col message-slide-in"
+        role="dialog" aria-modal="true" aria-label="Conversation memory"
+        className="rp-memory-panel glass-panel w-full max-w-lg rounded-2xl p-6 shadow-2xl max-h-[80vh] flex flex-col message-slide-in"
       >
         <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-2">
+          <div className="min-w-0 flex items-center gap-2">
             <span className="text-2xl">🧠</span>
             <p className="font-display text-lg gradient-text">What {characterName} remembers</p>
           </div>
@@ -118,6 +119,7 @@ export default function MemoryPanel({ open, characterId, characterName, onClose 
           </div>
         ) : (
           <textarea
+            aria-label="Conversation memory text"
             value={summary}
             onChange={(e) => setSummary(e.target.value)}
             rows={10}
@@ -127,7 +129,7 @@ export default function MemoryPanel({ open, characterId, characterName, onClose 
           />
         )}
 
-        <div className="flex items-center justify-between mt-4">
+        <div className="rp-memory-actions flex items-center justify-between mt-4">
           <button
             onClick={() => setConfirmForgetOpen(true)}
             disabled={loading || saving || (!summary && summarizedThrough === 0)}

@@ -207,7 +207,7 @@ export default function RoleplayModelPicker({
     onApply(next, engineId);
   }
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal aria-labelledby="engine-picker-title">
+    <div className="rp-engine-overlay fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal aria-labelledby="engine-picker-title">
       <button
         type="button"
         className="absolute inset-0 bg-ink/70 backdrop-blur-[2px]"
@@ -242,7 +242,7 @@ export default function RoleplayModelPicker({
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 space-y-6">
           {engineId === "custom" && (
             <p className="text-xs text-parchment/50 px-1">
               Custom mix active — pick a preset or use the sliders on any engine to fine-tune.

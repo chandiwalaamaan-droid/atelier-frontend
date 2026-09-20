@@ -430,7 +430,7 @@ export default function MePage() {
                   </button>
                 ) : (
                   <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl border border-rose/20 bg-rose/5">
-                    <p className="text-xs text-parchment/70 flex-1 min-w-[200px]">
+                    <p className="text-xs text-parchment/70 flex-1 min-w-0 basis-full sm:basis-auto">
                       Are you sure? This will permanently delete your account.
                     </p>
                     <button

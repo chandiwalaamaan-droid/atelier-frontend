@@ -1,20 +1,19 @@
-# Changed files
+# Mobile patch: changed files
 
-Paths are relative to this project folder.
+Relative to the supplied Story Edition frontend ZIP. Paths are relative to the project folder.
 
-- `.env.example`
-- `UPGRADE.md`
-- `app/chat/[characterId]/page.tsx`
-- `app/explore/page.tsx`
-- `app/globals.css`
+- `app/mobile.css`
+- `lib/useChatViewport.ts`
 - `app/layout.tsx`
-- `app/page.tsx`
+- `app/chat/[characterId]/page.tsx`
+- `app/me/page.tsx`
 - `components/AppShell.tsx`
-- `components/ExploreCharacterCard.tsx`
-- `components/StoryDirector.tsx`
-- `components/WelcomeOnboarding.tsx`
-- `lib/chatStream.ts`
-- `lib/roleplayPreferences.ts`
-- `lib/storySettings.ts`
-- `package.json`
-- `tests/chatStream.test.cjs`
+- `components/MemoryPanel.tsx`
+- `components/ConfirmDialog.tsx`
+- `components/AvatarGenerateModal.tsx`
+- `components/RoleplayModelPicker.tsx`
+- `MOBILE_FIXES.md`
+- `CHANGED_FILES.md`
+- `UPGRADE.md`
+
+See MOBILE_FIXES.md for deployment and verification details.

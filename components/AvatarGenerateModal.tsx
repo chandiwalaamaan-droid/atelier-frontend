@@ -98,7 +98,7 @@ export default function AvatarGenerateModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70 px-6"
+      className="rp-modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-ink/70 px-6"
       role="presentation"
       onClick={onClose}
     >
@@ -106,7 +106,7 @@ export default function AvatarGenerateModal({
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        className="stitched w-full max-w-sm rounded-2xl bg-plum-deep border border-parchment/20 p-6 shadow-2xl toast-in"
+        className="rp-compact-dialog stitched w-full max-w-sm rounded-2xl bg-plum-deep border border-parchment/20 p-6 shadow-2xl toast-in"
       >
         <p className="font-display text-lg mb-1">Portrait for {characterName}</p>
         <p className="text-sm text-parchment/60 mb-4">Upload an image or generate one with AI.</p>

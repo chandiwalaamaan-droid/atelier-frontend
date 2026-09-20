@@ -1,3 +1,5 @@
+> **Latest patch: mobile frontend fixes.** See `MOBILE_FIXES.md`. For this patch, redeploy the frontend only; no backend or database changes are required. The original Story Edition release notes and first-time installation instructions follow.
+
 # Rolichat — Story Edition
 
 This is an upgrade of your existing Next.js frontend and Express backend. Keep your current accounts, database, provider keys, character data, and deployment configuration.
