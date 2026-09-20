@@ -11,7 +11,16 @@ type Props = {
 
 function getFrameIndices(frameCount: number, mobile: boolean, reducedMotion: boolean) {
   if (reducedMotion) return [1];
-  if (!mobile) return Array.from({ length: frameCount }, (_, i) => i + 1);
+  if (!mobile) {
+    // Loading every frame up front creates unnecessary decode pressure and
+    // competes with the rest of the landing page for bandwidth/CPU.
+    // Two-frame sampling keeps the scroll reveal smooth via nearest-frame
+    // fallback while halving image requests and memory usage.
+    const indices = new Set<number>();
+    for (let i = 1; i <= frameCount; i += 2) indices.add(i);
+    indices.add(frameCount);
+    return [...indices].sort((a, b) => a - b);
+  }
 
   const indices = new Set<number>();
   for (let i = 1; i <= frameCount; i += 2) indices.add(i);
@@ -157,12 +166,12 @@ export default function ScrollFrameSequence({
     if (!ctx) return;
 
     ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
+    ctx.imageSmoothingQuality = "medium";
 
     const resizeCanvas = () => {
       const cssWidth = Math.max(1, canvas.clientWidth);
       const cssHeight = Math.max(1, canvas.clientHeight);
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       const backingWidth = Math.round(cssWidth * dpr);
       const backingHeight = Math.round(cssHeight * dpr);
 
@@ -314,7 +323,10 @@ export default function ScrollFrameSequence({
     resizeCanvas();
     queuePaint();
 
-    if (!reducedMotion) motionRafRef.current = requestAnimationFrame(animateMotion);
+    const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+    if (!reducedMotion && !coarsePointer) {
+      motionRafRef.current = requestAnimationFrame(animateMotion);
+    }
 
     return () => {
       window.removeEventListener("scroll", updateFromScroll);

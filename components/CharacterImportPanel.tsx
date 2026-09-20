@@ -21,7 +21,6 @@ export default function CharacterImportPanel({ onImported }: Props) {
   const [parseError, setParseError] = useState("");
   const [importError, setImportError] = useState("");
   const [importing, setImporting] = useState(false);
-  const [loadingIncluded, setLoadingIncluded] = useState(false);
   const [importResult, setImportResult] = useState<{ imported: number; failed: number } | null>(null);
 
   function onParse() {
@@ -93,26 +92,6 @@ export default function CharacterImportPanel({ onImported }: Props) {
     setImportResult(null);
   }
 
-  async function loadIncludedInnocentCharacters() {
-    if (loadingIncluded) return;
-    setLoadingIncluded(true);
-    setParseError("");
-    setImportError("");
-    setImportResult(null);
-    try {
-      const response = await fetch("/character-imports/innocent-characters.json", { cache: "no-store" });
-      if (!response.ok) throw new Error("Couldn't load the included character pack.");
-      const contents = await response.text();
-      setText(contents);
-      setPreview(previewCharacterImport(contents));
-    } catch (err) {
-      setPreview(null);
-      setParseError(err instanceof Error ? err.message : "Couldn't load the included character pack.");
-    } finally {
-      setLoadingIncluded(false);
-    }
-  }
-
   return (
     <div className="stitched rounded-2xl bg-plum/60 p-6 mb-8 max-w-2xl">
       <div className="flex items-start justify-between gap-4 mb-2">
@@ -170,14 +149,6 @@ export default function CharacterImportPanel({ onImported }: Props) {
               className="text-sm text-parchment/60 hover:text-gold focus-ring rounded px-2"
             >
               Load example format
-            </button>
-            <button
-              type="button"
-              onClick={loadIncludedInnocentCharacters}
-              disabled={loadingIncluded}
-              className="text-sm text-gold/85 hover:text-gold focus-ring rounded px-2 disabled:opacity-50"
-            >
-              {loadingIncluded ? "Loading…" : "Load included 30 characters"}
             </button>
             <input
               ref={fileInputRef}
