@@ -1,38 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import PremiumActionButton, { PremiumLockBadge } from "@/components/PremiumActionButton";
-import { EARLY_ACCESS_MESSAGE, SPARK_CURRENCY, SPARK_PACKS, formatPrice, type SparkPackId } from "@/lib/premium";
+import { EARLY_ACCESS_MESSAGE, SPARK_CURRENCY, SPARK_PACKS, type SparkPackId } from "@/lib/premium";
 import { buySparkPack } from "@/lib/razorpay";
-import { fetchBillingStatus } from "@/lib/billing";
 
 export default function WalletPage() {
   // Only reachable once PREMIUM_PAYMENTS_ENABLED flips to true — until then
   // PremiumActionButton renders disabled and never fires onClick at all.
   const [buyingId, setBuyingId] = useState<SparkPackId | null>(null);
   const [buyError, setBuyError] = useState("");
-  const [sparkBalance, setSparkBalance] = useState<number | null>(null);
-  const [membershipTier, setMembershipTier] = useState<"free" | "plus" | "ultra" | "supreme" | null>(null);
-  const [paymentsLive, setPaymentsLive] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchBillingStatus(controller.signal)
-      .then((status) => {
-        if (!status) return;
-        setSparkBalance(status.sparkBalance);
-        setMembershipTier(status.membershipTier);
-        setPaymentsLive(status.paymentsLive);
-      })
-      .catch((err) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        console.warn("Could not load wallet status:", err);
-      });
-    return () => controller.abort();
-  }, []);
 
   async function onBuyPack(packId: SparkPackId) {
     setBuyError("");
@@ -72,14 +52,8 @@ export default function WalletPage() {
               </span>
               <div>
                 <p className="text-sm text-parchment/45">{SPARK_CURRENCY}</p>
-                <p className="text-4xl font-semibold">{sparkBalance === null ? "—" : sparkBalance.toLocaleString()}</p>
-                <p className="text-xs text-gold/80 mt-1">
-                  {paymentsLive === false
-                    ? "Free during early access"
-                    : membershipTier === "free" || membershipTier === null
-                      ? "Free plan"
-                      : `${membershipTier[0].toUpperCase()}${membershipTier.slice(1)} member`}
-                </p>
+                <p className="text-4xl font-semibold">∞</p>
+                <p className="text-xs text-gold/80 mt-1">Free during early access</p>
               </div>
             </div>
 
@@ -87,17 +61,15 @@ export default function WalletPage() {
               href="/plus"
               className="rounded-2xl promo-banner border border-gold/20 p-6 flex flex-col justify-center focus-ring"
             >
-              <p className="text-xs uppercase tracking-wider text-gold/90 mb-1">
-                {membershipTier && membershipTier !== "free" ? "Your Rolichat+ membership" : "Join Rolichat+ membership"}
-              </p>
-              <p className="text-lg font-display">3 premium engines · extended memory · no ads (later)</p>
+              <p className="text-xs uppercase tracking-wider text-gold/90 mb-1">Join Rolichat+ membership</p>
+              <p className="text-lg font-display">5 premium engines · extended memory · no ads (later)</p>
               <PremiumLockBadge />
             </Link>
           </div>
 
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-display text-lg">Buy {SPARK_CURRENCY}</h2>
-            <span className="text-xs text-parchment/40">What are Sparks? — in-app credits for future extras</span>
+            <span className="text-xs text-parchment/40">What are Sparks? — in-app credits for extras (later)</span>
           </div>
 
           <p className="text-xs text-parchment/45 mb-4">{EARLY_ACCESS_MESSAGE}</p>
@@ -120,7 +92,7 @@ export default function WalletPage() {
                   onClick={() => onBuyPack(pack.id)}
                   disabled={buyingId === pack.id}
                 >
-                  {buyingId === pack.id ? "Opening…" : formatPrice(pack.priceInr)}
+                  {buyingId === pack.id ? "Opening…" : `USD ${pack.priceUsd.toFixed(2)}`}
                 </PremiumActionButton>
               </div>
             ))}

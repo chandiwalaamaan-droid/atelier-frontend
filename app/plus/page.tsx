@@ -13,28 +13,12 @@ import {
   type MembershipTierId,
 } from "@/lib/premium";
 import { subscribeMembership } from "@/lib/razorpay";
-import { fetchBillingStatus } from "@/lib/billing";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export default function PlusPage() {
   const [cycle, setCycle] = useState<BillingCycle>("monthly");
   const [subscribingId, setSubscribingId] = useState<MembershipTierId | null>(null);
   const [subscribeError, setSubscribeError] = useState("");
-  const [currentTier, setCurrentTier] = useState<MembershipTierId | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchBillingStatus(controller.signal)
-      .then((status) => {
-        if (!status) return;
-        setCurrentTier(status.membershipTier);
-      })
-      .catch((err) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        console.warn("Could not load membership status:", err);
-      });
-    return () => controller.abort();
-  }, []);
 
   async function onSubscribe(tier: Exclude<MembershipTierId, "free">) {
     setSubscribeError("");
@@ -94,7 +78,7 @@ export default function PlusPage() {
           <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4 max-w-6xl mx-auto">
             {MEMBERSHIP_TIERS.map((tier) => {
               const price =
-                tier.monthlyPriceInr === 0 ? 0 : tier.monthlyPriceInr * cycleMultiplier(cycle);
+                tier.monthlyPrice === 0 ? 0 : tier.monthlyPrice * cycleMultiplier(cycle);
               const cardClass =
                 tier.accent === "rainbow"
                   ? "tier-card-glow-rainbow"
@@ -116,7 +100,7 @@ export default function PlusPage() {
                         <span className="text-parchment/60">Free</span>
                       ) : (
                         <>
-                          {formatPrice(price)}
+                          ${formatPrice(price)}
                           <span className="text-sm font-normal text-parchment/45"> / {cycle === "monthly" ? "mo" : cycle.slice(0, 2)}</span>
                         </>
                       )}
@@ -131,21 +115,13 @@ export default function PlusPage() {
                       </li>
                     ))}
                   </ul>
-                  {tier.id === currentTier ? (
+                  {tier.id === "free" ? (
                     <button
                       type="button"
                       disabled
                       className="w-full py-2.5 rounded-full bg-white/5 border border-white/10 text-sm text-parchment/50"
                     >
                       Current plan
-                    </button>
-                  ) : tier.id === "free" ? (
-                    <button
-                      type="button"
-                      disabled
-                      className="w-full py-2.5 rounded-full bg-white/5 border border-white/10 text-sm text-parchment/35"
-                    >
-                      Included
                     </button>
                   ) : (
                     <PremiumActionButton
@@ -163,7 +139,7 @@ export default function PlusPage() {
           </div>
 
           <p className="text-center text-xs text-parchment/35 mt-10 max-w-lg mx-auto">
-            Subscriptions will connect to payment later. Until billing launches, checkout stays disabled. See{" "}
+            Subscriptions will connect to payment later. Until then, all engines and chats remain free. See{" "}
             <Link href="/terms" className="text-gold hover:text-gold/80 transition-colors">
               Terms
             </Link>

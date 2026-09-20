@@ -236,8 +236,8 @@ export default function RoleplayModelPicker({
           <div className="mt-3 rounded-xl bg-gradient-to-r from-violet-500/10 to-gold/10 border border-violet-400/25 px-3 py-2.5 flex items-start gap-2 text-xs text-parchment/90">
             <span className="text-base leading-none">💎</span>
             <div>
-              <p className="font-medium text-parchment mb-0.5">Four engines, tuned for different experiences</p>
-              <p className="text-parchment/60">Higher badges indicate deeper or more specialized roleplay behavior.</p>
+              <p className="font-medium text-parchment mb-0.5">All engines included — free to use</p>
+              <p className="text-parchment/60">Higher badges = richer, more immersive experiences.</p>
             </div>
           </div>
         </header>

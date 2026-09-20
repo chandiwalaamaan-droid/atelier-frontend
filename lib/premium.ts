@@ -15,8 +15,8 @@ export type MembershipTier = {
   id: MembershipTierId;
   name: string;
   tagline: string;
-  /** Display price per month in INR; backend Razorpay catalog is the source of truth. */
-  monthlyPriceInr: number;
+  /** Display price per month (USD) — not charged while payments disabled. */
+  monthlyPrice: number;
   accent: "neutral" | "silver" | "gold" | "rainbow";
   features: string[];
   highlight?: boolean;
@@ -27,7 +27,7 @@ export const MEMBERSHIP_TIERS: MembershipTier[] = [
     id: "free",
     name: "Free",
     tagline: "Everything you need to start roleplaying.",
-    monthlyPriceInr: 0,
+    monthlyPrice: 0,
     accent: "neutral",
     features: [
       "Vanilla chat engine",
@@ -40,7 +40,7 @@ export const MEMBERSHIP_TIERS: MembershipTier[] = [
     id: "plus",
     name: "Plus",
     tagline: "More models, smoother sessions, no distractions.",
-    monthlyPriceInr: 1099,
+    monthlyPrice: 12.99,
     accent: "silver",
     features: [
       "No ads (when we add them)",
@@ -54,7 +54,7 @@ export const MEMBERSHIP_TIERS: MembershipTier[] = [
     id: "ultra",
     name: "Ultra",
     tagline: "For daily deep roleplay and richer scenes.",
-    monthlyPriceInr: 1699,
+    monthlyPrice: 19.99,
     accent: "gold",
     highlight: true,
     features: [
@@ -69,7 +69,7 @@ export const MEMBERSHIP_TIERS: MembershipTier[] = [
     id: "supreme",
     name: "Supreme",
     tagline: "Maximum control and the flagship engine.",
-    monthlyPriceInr: 4199,
+    monthlyPrice: 49.99,
     accent: "rainbow",
     features: [
       "Everything in Ultra",
@@ -87,21 +87,21 @@ export type SparkPack = {
   id: SparkPackId;
   sparks: number;
   bonus: number;
-  priceInr: number;
+  priceUsd: number;
 };
 
 export const SPARK_PACKS: SparkPack[] = [
-  { id: "s200", sparks: 200, bonus: 40, priceInr: 169 },
-  { id: "s1000", sparks: 1000, bonus: 200, priceInr: 849 },
-  { id: "s1500", sparks: 1500, bonus: 300, priceInr: 1249 },
-  { id: "s3000", sparks: 3000, bonus: 600, priceInr: 2499 },
-  { id: "s5000", sparks: 5000, bonus: 1200, priceInr: 4199 },
-  { id: "s10000", sparks: 10000, bonus: 4000, priceInr: 8399 },
+  { id: "s200", sparks: 200, bonus: 40, priceUsd: 1.99 },
+  { id: "s1000", sparks: 1000, bonus: 200, priceUsd: 9.99 },
+  { id: "s1500", sparks: 1500, bonus: 300, priceUsd: 14.99 },
+  { id: "s3000", sparks: 3000, bonus: 600, priceUsd: 29.99 },
+  { id: "s5000", sparks: 5000, bonus: 1200, priceUsd: 49.99 },
+  { id: "s10000", sparks: 10000, bonus: 4000, priceUsd: 99.99 },
 ];
 
-/** Shown in UI while payments are off; server-side access controls remain authoritative. */
+/** Shown in UI while payments are off — users get full access anyway. */
 export const EARLY_ACCESS_MESSAGE =
-  "Early access — billing is off for now. Premium plans and Sparks launch later.";
+  "Early access — everything is free right now. Premium & Sparks launch later.";
 
 export function cycleMultiplier(cycle: BillingCycle): number {
   if (cycle === "quarterly") return 2.85;
@@ -109,10 +109,6 @@ export function cycleMultiplier(cycle: BillingCycle): number {
   return 1;
 }
 
-export function formatPrice(inr: number): string {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(inr);
+export function formatPrice(usd: number): string {
+  return usd.toFixed(2);
 }

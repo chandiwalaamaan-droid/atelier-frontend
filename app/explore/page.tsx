@@ -67,11 +67,7 @@ export default function ExplorePage() {
   const [reportError, setReportError] = useState("");
   const [nsfwEnabled, setNsfwEnabled] = useState(() => {
     if (typeof window === "undefined") return false;
-    try {
-      return window.localStorage.getItem("rolichat_nsfw") === "1";
-    } catch {
-      return false;
-    }
+    return window.localStorage.getItem("rolichat_nsfw") === "1";
   });
 
   function toggleNsfw() {
@@ -83,11 +79,7 @@ export default function ExplorePage() {
     }
     const next = !nsfwEnabled;
     setNsfwEnabled(next);
-    try {
-      window.localStorage.setItem("rolichat_nsfw", next ? "1" : "0");
-    } catch {
-      // Preference remains active for this render even if persistence fails.
-    }
+    window.localStorage.setItem("rolichat_nsfw", next ? "1" : "0");
   }
 
   useEffect(() => {

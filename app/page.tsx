@@ -79,10 +79,6 @@ export default function Home() {
       fetchAndCacheUser().then((user) => {
         if (cancelled) return;
         setAuthStatus(user ? "authed" : "guest");
-      }).catch((err) => {
-        if (cancelled) return;
-        console.warn("Could not verify session; showing the public landing page:", err);
-        setAuthStatus("guest");
       });
     }
     return () => { cancelled = true; };

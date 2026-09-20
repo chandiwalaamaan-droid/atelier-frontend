@@ -25,13 +25,13 @@ let inFlight: Promise<AuthUser> | null = null;
 const FRESH_MS = 60_000; // treat a check younger than this as still valid, no refetch needed
 
 async function fetchUser(): Promise<AuthUser> {
-  const res = await apiFetch("/api/auth/me");
-  const data = await res.json().catch(() => ({}));
-  if (res.status === 401) return null;
-  if (!res.ok) {
-    throw new Error(typeof data.error === "string" ? data.error : `Authentication check failed (${res.status}).`);
+  try {
+    const res = await apiFetch("/api/auth/me");
+    const data = await res.json().catch(() => ({}));
+    return data.user ?? null;
+  } catch {
+    return null;
   }
-  return data.user ?? null;
 }
 
 /** Returns the cached user (if fresh) without hitting the network. */
@@ -46,9 +46,8 @@ export async function fetchAndCacheUser(): Promise<AuthUser> {
   inFlight = fetchUser().then((user) => {
     cachedUser = user;
     cachedAt = Date.now();
-    return user;
-  }).finally(() => {
     inFlight = null;
+    return user;
   });
   return inFlight;
 }

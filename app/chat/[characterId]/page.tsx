@@ -71,22 +71,14 @@ const SCENARIO_ACTIONS = [
 
 function getChatTheme(): ChatTheme {
   if (typeof window === "undefined") return "midnight";
-  try {
-    const stored = localStorage.getItem("rolichat:chat:theme");
-    if (stored === "midnight" || stored === "aurora" || stored === "ember") return stored;
-  } catch {
-    // Fall back to the default theme when storage is unavailable.
-  }
+  const stored = localStorage.getItem("rolichat:chat:theme");
+  if (stored === "midnight" || stored === "aurora" || stored === "ember") return stored;
   return "midnight";
 }
 
 function saveChatTheme(theme: ChatTheme) {
   if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem("rolichat:chat:theme", theme);
-  } catch {
-    // Theme still applies for this render even if persistence is blocked.
-  }
+  localStorage.setItem("rolichat:chat:theme", theme);
 }
 
 function buildChatBody(
@@ -233,14 +225,8 @@ export default function ChatPage() {
   const sendingRef = useRef(false);
 
   useEffect(() => {
-    const root = document.documentElement;
-    root.setAttribute("data-chat-theme", theme);
+    document.documentElement.setAttribute("data-chat-theme", theme);
     saveChatTheme(theme);
-    return () => {
-      if (root.getAttribute("data-chat-theme") === theme) {
-        root.removeAttribute("data-chat-theme");
-      }
-    };
   }, [theme]);
 
   useEffect(() => {
@@ -359,13 +345,6 @@ export default function ChatPage() {
   const lastActionRef = useRef<{ type: "send"; text: string; sceneDirective?: string } | { type: "regenerate" } | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    return () => {
-      abortControllerRef.current?.abort();
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-    };
-  }, []);
-
   function isAbortError(err: unknown) {
     return err instanceof DOMException && err.name === "AbortError";
   }
@@ -451,47 +430,6 @@ export default function ChatPage() {
       }
     };
 
-    const handleSegment = (seg: StreamSegment) => {
-      if (seg.type === "text") {
-        acc += seg.value;
-        ensureAnimating();
-        return;
-      }
-
-      const ev = seg.value;
-      if (ev.type === "failover") {
-        // A failover starts a fresh provider stream. Discard the incomplete
-        // text from the failed provider so the next provider's reply cannot
-        // be shown as a duplicated continuation.
-        acc = "";
-        revealedLen = 0;
-        lastTick = null;
-        if (animFrame !== null) {
-          cancelAnimationFrame(animFrame);
-          animFrame = null;
-        }
-        paintRevealed();
-        showToast("Reconnecting to keep the reply on track…");
-      } else if (ev.type === "fatal") {
-        const message = typeof ev.message === "string" ? ev.message : "Something went wrong.";
-        setError(message);
-        onFatal(message);
-      } else if (ev.type === "relationship" && typeof ev.level === "number") {
-        setRelationshipLevel(ev.level);
-      } else if (ev.type === "engine_downgrade" && typeof ev.requested === "string" && typeof ev.used === "string") {
-        // Backend paywall substituted a lower engine than the client asked
-        // for. Surface it rather than silently showing a different engine.
-        const requestedName = engineById(ev.requested as RoleplayEngineId)?.name ?? ev.requested;
-        const usedName = engineById(ev.used as RoleplayEngineId)?.name ?? ev.used;
-        const tier = MEMBERSHIP_TIERS.find((t) => t.id === ev.requiredTier);
-        showToast(
-          tier
-            ? `Replied with ${usedName} — ${requestedName} needs ${tier.name}. Upgrade on the Plus page.`
-            : `Replied with ${usedName} instead of ${requestedName}.`
-        );
-      }
-    };
-
     try {
       while (true) {
         const { done, value } = await reader.read();
@@ -499,16 +437,41 @@ export default function ChatPage() {
         carry += decoder.decode(value, { stream: true });
         const { segments, rest } = extractEvents(carry);
         carry = rest;
-        for (const seg of segments) handleSegment(seg);
-      }
-
-      // TextDecoder can retain the last incomplete UTF-8 sequence when the
-      // stream ends. Flush it, then process any final complete segment.
-      carry += decoder.decode();
-      if (carry) {
-        const { segments, rest } = extractEvents(carry);
-        carry = rest;
-        for (const seg of segments) handleSegment(seg);
+        for (const seg of segments) {
+          if (seg.type === "text") {
+            acc += seg.value;
+            ensureAnimating();
+            continue;
+          }
+          const ev = seg.value;
+          if (ev.type === "failover") {
+            acc = "";
+            revealedLen = 0;
+            showToast("Reconnecting to keep the reply on track…");
+          } else if (ev.type === "fatal") {
+            const message = typeof ev.message === "string" ? ev.message : "Something went wrong.";
+            setError(message);
+            onFatal(message);
+          } else if (ev.type === "relationship" && typeof ev.level === "number") {
+            setRelationshipLevel(ev.level);
+          } else if (ev.type === "engine_downgrade" && typeof ev.requested === "string" && typeof ev.used === "string") {
+            // Backend paywall substituted a lower engine than the client
+            // asked for (see resolveEngineForTier's comment in
+            // providers/engines.ts) — surface it as an upsell rather than
+            // silently serving a different engine than the picker showed.
+            // Inert today (ENFORCE_ENGINE_TIERS defaults off, same as
+            // PREMIUM_PAYMENTS_ENABLED here), but wired up so flipping
+            // either on later doesn't leave this failing silently.
+            const requestedName = engineById(ev.requested as RoleplayEngineId)?.name ?? ev.requested;
+            const usedName = engineById(ev.used as RoleplayEngineId)?.name ?? ev.used;
+            const tier = MEMBERSHIP_TIERS.find((t) => t.id === ev.requiredTier);
+            showToast(
+              tier
+                ? `Replied with ${usedName} — ${requestedName} needs ${tier.name}. Upgrade on the Plus page.`
+                : `Replied with ${usedName} instead of ${requestedName}.`
+            );
+          }
+        }
       }
     } finally {
       // Guarantee a final, synchronous flush of the *complete* text so

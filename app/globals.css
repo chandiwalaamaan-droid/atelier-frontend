@@ -454,7 +454,6 @@ select:focus {
 
 /* ===== Chat Themes ===== */
 
-[data-chat-theme="midnight"],
 .chat-theme-midnight {
   --chat-bg: #0a0a0c;
   --chat-surface: #121218;
@@ -466,7 +465,6 @@ select:focus {
   --chat-glow-rose: rgba(181, 101, 122, 0.1);
 }
 
-[data-chat-theme="aurora"],
 .chat-theme-aurora {
   --chat-bg: #0a0a14;
   --chat-surface: #0f0f1e;
@@ -478,7 +476,6 @@ select:focus {
   --chat-glow-rose: rgba(6, 182, 212, 0.12);
 }
 
-[data-chat-theme="ember"],
 .chat-theme-ember {
   --chat-bg: #0c0a08;
   --chat-surface: #141210;

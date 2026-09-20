@@ -22,7 +22,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
   const cached = getCachedUser();
-  const [status, setStatus] = useState<"checking" | "ok" | "error">(cached?.user ? "ok" : "checking");
+  const [status, setStatus] = useState<"checking" | "ok">(cached?.user ? "ok" : "checking");
 
   useEffect(() => {
     let cancelled = false;
@@ -31,8 +31,6 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
     if (cached?.user && cached.fresh) {
       fetchAndCacheUser().then((user) => {
         if (!cancelled && !user) router.replace(`/login?next=${encodeURIComponent(pathname || "/explore")}`);
-      }).catch((err) => {
-        if (!cancelled) console.warn("Session revalidation failed; keeping the cached session:", err);
       });
       return () => {
         cancelled = true;
@@ -46,10 +44,6 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
       } else {
         router.replace(`/login?next=${encodeURIComponent(pathname || "/explore")}`);
       }
-    }).catch((err) => {
-      if (cancelled) return;
-      console.error("Session check failed:", err);
-      setStatus("error");
     });
     return () => {
       cancelled = true;
@@ -61,24 +55,6 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
     return (
       <main className="min-h-screen flex items-center justify-center">
         <p className="text-parchment/60">Loading…</p>
-      </main>
-    );
-  }
-
-  if (status === "error") {
-    return (
-      <main className="min-h-screen flex items-center justify-center px-6 text-center">
-        <div className="max-w-sm">
-          <p className="font-display text-xl text-parchment">Couldn&apos;t verify your session</p>
-          <p className="mt-2 text-sm text-parchment/50">The server may be temporarily unavailable. Your session was not cleared.</p>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="mt-5 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-ink focus-ring"
-          >
-            Try again
-          </button>
-        </div>
       </main>
     );
   }
