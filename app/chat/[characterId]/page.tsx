@@ -11,6 +11,9 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import RoleplayModelPicker from "@/components/RoleplayModelPicker";
 import MemoryPanel from "@/components/MemoryPanel";
 import AppShell from "@/components/AppShell";
+import StoryDirector from "@/components/StoryDirector";
+import { extractEvents } from "@/lib/chatStream";
+import { DEFAULT_STORY, loadStory, readLocal, writeLocal, type StorySettings } from "@/lib/storySettings";
 import AvatarGenerateModal from "@/components/AvatarGenerateModal";
 import {
   loadRoleplayPreferences,
@@ -61,24 +64,23 @@ const CHAT_THEMES: { id: ChatTheme; label: string; emoji: string }[] = [
 const REACTION_EMOJIS = ["❤️", "🔥", "😂", "😮", "😢"];
 
 const SCENARIO_ACTIONS = [
-  { label: "Slap 💥", action: "*slaps your face hard*" },
-  { label: "Punch 👊", action: "*punches your stomach*" },
-  { label: "Hug 🤗", action: "*wraps you in a tight hug*" },
-  { label: "Kiss 💋", action: "*presses a soft kiss against your lips*" },
-  { label: "Tickle 😂", action: "*tickles your sides*" },
-  { label: "Spin 🔄", action: "*spins you around and pins you against the wall*" },
+  { label: "Ask a question", action: "*I pause, curious.* What haven't you told me yet?" },
+  { label: "Look closer", action: "*I take a closer look at our surroundings, searching for something I might have missed.*" },
+  { label: "Make a choice", action: "*I take a breath and step forward.* All right. Let's do this together." },
+  { label: "Share a moment", action: "*I sit beside you, letting the comfortable silence settle.*" },
 ];
 
 function getChatTheme(): ChatTheme {
   if (typeof window === "undefined") return "midnight";
-  const stored = localStorage.getItem("rolichat:chat:theme");
+  let stored: string | null = null;
+  try { stored = localStorage.getItem("rolichat:chat:theme"); } catch { return "midnight"; }
   if (stored === "midnight" || stored === "aurora" || stored === "ember") return stored;
   return "midnight";
 }
 
 function saveChatTheme(theme: ChatTheme) {
   if (typeof window === "undefined") return;
-  localStorage.setItem("rolichat:chat:theme", theme);
+  try { localStorage.setItem("rolichat:chat:theme", theme); } catch { /* Optional preference. */ }
 }
 
 function buildChatBody(
@@ -145,40 +147,11 @@ function renderInline(line: string): ReactNode[] {
   return nodes;
 }
 
-const MARKER = "\u0000EVT:";
-
-type StreamSegment = { type: "text"; value: string } | { type: "event"; value: Record<string, unknown> };
-
-function extractEvents(buffer: string): { segments: StreamSegment[]; rest: string } {
-  const segments: StreamSegment[] = [];
-  let rest = buffer;
-  while (true) {
-    const start = rest.indexOf(MARKER);
-    if (start === -1) {
-      if (rest) segments.push({ type: "text", value: rest });
-      rest = "";
-      break;
-    }
-    if (start > 0) segments.push({ type: "text", value: rest.slice(0, start) });
-    const end = rest.indexOf("\u0000", start + MARKER.length);
-    if (end === -1) {
-      rest = rest.slice(start);
-      break;
-    }
-    const json = rest.slice(start + MARKER.length, end);
-    try {
-      segments.push({ type: "event", value: JSON.parse(json) });
-    } catch {
-      /* malformed event, drop it silently */
-    }
-    rest = rest.slice(end + 1);
-  }
-  return { segments, rest };
-}
-
 export default function ChatPage() {
   const { characterId } = useParams<{ characterId: string }>();
   const router = useRouter();
+  const activeCharacterRef = useRef(characterId);
+  activeCharacterRef.current = characterId;
   const [character, setCharacter] = useState<Character | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -212,8 +185,15 @@ export default function ChatPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<{ displayName: string; email: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: string; displayName: string; email: string } | null>(null);
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
+  const [story, setStory] = useState<StorySettings>(DEFAULT_STORY);
+  const [directorOpen, setDirectorOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const localKeyRef = useRef("");
   const [expandedAvatar, setExpandedAvatar] = useState<string | null>(null);
 
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -240,6 +220,13 @@ export default function ChatPage() {
   }, [openMenuId]);
 
   useEffect(() => {
+    setCharacter(null);
+    setMessages([]);
+    setInput("");
+    setLoadError("");
+    setNotFound(false);
+    setStory(DEFAULT_STORY);
+    localKeyRef.current = "";
     const controller = new AbortController();
     apiFetch(`/api/chat/${characterId}`, { signal: controller.signal })
       .then(async (r) => {
@@ -248,7 +235,8 @@ export default function ChatPage() {
           return null;
         }
         if (!r.ok) {
-          setNotFound(true);
+          if (r.status === 404) setNotFound(true);
+          else setLoadError("Couldn't load this conversation. Please try again.");
           return null;
         }
         return r.json();
@@ -263,10 +251,10 @@ export default function ChatPage() {
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        console.error("Failed to load chat:", err);
+        setLoadError("Couldn't reach the server. Your saved conversation is still there.");
       });
-    return () => controller.abort();
-  }, [characterId]);
+    return () => { controller.abort(); abortControllerRef.current?.abort(); };
+  }, [characterId, loadAttempt, router]);
 
   useEffect(() => {
     if (!character) return;
@@ -301,6 +289,32 @@ export default function ChatPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [expandedAvatar]);
 
+  useEffect(() => {
+    if (!currentUser?.id || !character?.id) return;
+    const key = `rolichat:story:${currentUser.id}:${character.id}`;
+    localKeyRef.current = key;
+    setStory(loadStory(key));
+    const draft = readLocal<unknown>(`${key}:draft`, "");
+    setInput(typeof draft === "string" ? draft.slice(0, MAX_MESSAGE_LENGTH) : "");
+    return () => { localKeyRef.current = ""; };
+  }, [currentUser?.id, character?.id]);
+
+  function updateDraft(value: string) {
+    setInput(value);
+    if (localKeyRef.current) writeLocal(`${localKeyRef.current}:draft`, value);
+  }
+
+  function applyStory(value: StorySettings, opener?: string) {
+    setStory(value);
+    const saved = localKeyRef.current && writeLocal(localKeyRef.current, value);
+    if (opener) updateDraft(opener);
+    showToast(saved ? "Direction saved. It applies to your next reply." : "Direction applied for this session; browser storage is unavailable.");
+  }
+
+  function buildStoryChatBody(payload: Record<string, unknown>) {
+    return buildChatBody(roleplayPrefs, { ...payload, story });
+  }
+
   function applyEnginePrefs(prefs: RoleplayPreferences, engineId: RoleplayEngineId) {
     setRoleplayPrefs({ ...prefs, engineId });
   }
@@ -320,7 +334,7 @@ export default function ChatPage() {
     const el = scrollRef.current;
     if (!el) return;
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 200;
-    if (nearBottom) scrollToBottom();
+    if (nearBottom) scrollToBottom("auto");
   }, [messages, scrollToBottom]);
 
   function onScroll() {
@@ -342,8 +356,15 @@ export default function ChatPage() {
     el.style.height = Math.min(el.scrollHeight, 160) + "px";
   }
 
-  const lastActionRef = useRef<{ type: "send"; text: string; sceneDirective?: string } | { type: "regenerate" } | null>(null);
+  const lastActionRef = useRef<{ type: "send"; text: string; sceneDirective?: string; requestId: string } | { type: "regenerate" } | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => () => {
+    abortControllerRef.current?.abort();
+    audioElRef.current?.pause();
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    document.documentElement.removeAttribute("data-chat-theme");
+  }, []);
 
   function isAbortError(err: unknown) {
     return err instanceof DOMException && err.name === "AbortError";
@@ -398,6 +419,8 @@ export default function ChatPage() {
     let revealedLen = 0;
     let lastTick: number | null = null;
     let animFrame: number | null = null;
+    let lastPaint = 0;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const paintRevealed = () => {
       setMessages((prev: Message[]) =>
@@ -414,7 +437,7 @@ export default function ChatPage() {
       if (backlog > 0) {
         const speed = Math.max(BASE_REVEAL_CHARS_PER_SEC, backlog / CATCHUP_WINDOW_SECONDS);
         revealedLen = Math.min(acc.length, revealedLen + speed * dt);
-        paintRevealed();
+        if (now - lastPaint >= 40 || revealedLen === acc.length) { paintRevealed(); lastPaint = now; }
         animFrame = requestAnimationFrame(tick);
       } else {
         // Fully caught up — stop scheduling frames until more text
@@ -425,6 +448,7 @@ export default function ChatPage() {
     };
 
     const ensureAnimating = () => {
+      if (reduceMotion) { revealedLen = acc.length; paintRevealed(); return; }
       if (animFrame === null) {
         animFrame = requestAnimationFrame(tick);
       }
@@ -447,6 +471,7 @@ export default function ChatPage() {
           if (ev.type === "failover") {
             acc = "";
             revealedLen = 0;
+            paintRevealed();
             showToast("Reconnecting to keep the reply on track…");
           } else if (ev.type === "fatal") {
             const message = typeof ev.message === "string" ? ev.message : "Something went wrong.";
@@ -486,6 +511,7 @@ export default function ChatPage() {
       setMessages((prev: Message[]) =>
         prev.map((m) => (m.id === assistantId ? { ...m, content: acc } : m))
       );
+      reader.releaseLock();
     }
   }
 
@@ -494,7 +520,7 @@ export default function ChatPage() {
       const r = await apiFetch(`/api/chat/${characterId}`);
       if (!r.ok) return;
       const data = await r.json();
-      setMessages(data.messages);
+      if (activeCharacterRef.current === characterId) setMessages(data.messages);
     } catch {
       // best-effort sync; ignore transient failures
     }
@@ -504,7 +530,8 @@ export default function ChatPage() {
     setError("");
     sendingRef.current = true;
     setSending(true);
-    lastActionRef.current = { type: "send", text: userText, sceneDirective };
+    const requestId = crypto.randomUUID();
+    lastActionRef.current = { type: "send", text: userText, sceneDirective, requestId };
 
     const showUserBubble = Boolean(userText.trim());
     const userMsg: Message | null = showUserBubble
@@ -520,8 +547,9 @@ export default function ChatPage() {
     try {
       const res = await apiFetch(`/api/chat/${characterId}`, {
         method: "POST",
-        body: buildChatBody(roleplayPrefs, {
+        body: buildStoryChatBody({
           message: userText,
+          requestId,
           ...(sceneDirective ? { sceneDirective } : {}),
         }),
         signal: controller.signal,
@@ -569,8 +597,9 @@ export default function ChatPage() {
     try {
       const res = await apiFetch(`/api/chat/${characterId}`, {
         method: "POST",
-        body: buildChatBody(roleplayPrefs, {
+        body: buildStoryChatBody({
           message: action.text,
+          requestId: action.requestId,
           ...(action.sceneDirective ? { sceneDirective: action.sceneDirective } : {}),
         }),
         signal: controller.signal,
@@ -597,7 +626,7 @@ export default function ChatPage() {
     sendingRef.current = true;
     setSending(true);
     const userText = input.trim();
-    setInput("");
+    updateDraft("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
     await sendMessage(userText);
   }
@@ -605,15 +634,16 @@ export default function ChatPage() {
   async function onRegenerate() {
     if (sendingRef.current || messages.length === 0) return;
     const last = messages[messages.length - 1];
-    if (last.role !== "assistant") return;
-    const previousContent = last.content;
+    const previousMessages = messages;
+    const assistantId = last.role === "assistant" ? last.id : `local-${Date.now()}-a`;
 
     setError("");
     setSending(true);
+    sendingRef.current = true;
     lastActionRef.current = { type: "regenerate" };
-    setMessages((prev: Message[]) => prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: "" } : m)));
+    setMessages(prev => last.role === "assistant" ? prev.map(m => m.id === last.id ? { ...m, content: "" } : m) : [...prev, { id: assistantId, role: "assistant", content: "" }]);
 
-    const restore = () => setMessages((prev: Message[]) => prev.map((m) => (m.id === last.id ? { ...m, content: previousContent } : m)));
+    const restore = () => setMessages(previousMessages);
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -621,10 +651,10 @@ export default function ChatPage() {
     try {
       const res = await apiFetch(`/api/chat/${characterId}`, {
         method: "POST",
-        body: buildChatBody(roleplayPrefs, { regenerate: true }),
+        body: buildStoryChatBody({ regenerate: true }),
         signal: controller.signal,
       });
-      await runStream(res, last.id, restore);
+      await runStream(res, assistantId, restore);
     } catch (err) {
       if (!isAbortError(err)) {
         setError("Lost connection while regenerating the reply.");
@@ -653,16 +683,19 @@ export default function ChatPage() {
     if (!character || messages.length === 0) return;
     const lines = messages.map((m) => {
       const time = m.createdAt ? `[${formatTime(m.createdAt)}] ` : "";
-      const role = m.role === "user" ? currentUser?.displayName || "You" : character.name;
+      const role = m.role === "user" ? story.personaName || currentUser?.displayName || "You" : character.name;
       return `${time}${role}: ${m.content}`;
     });
-    const blob = new Blob([lines.join("\n\n")], { type: "text/plain" });
+    const heading = [`Rolichat — ${character.name}`, `Exported ${new Date().toLocaleString()}`, story.scene ? `Scene: ${story.scene}` : "", ""].filter(Boolean).join("\n");
+    const blob = new Blob([heading + "\n\n" + lines.join("\n\n")], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `${character.name} - Chat Export.txt`;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   async function confirmResetConversation() {
@@ -671,9 +704,12 @@ export default function ChatPage() {
     try {
       const r = await apiFetch(`/api/chat/${characterId}`, { method: "DELETE" });
       const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || "Couldn't clear this conversation.");
       setMessages([]);
       setRelationshipLevel(typeof data.relationshipLevel === "number" ? data.relationshipLevel : 0);
       setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't clear this conversation.");
     } finally {
       setResetting(false);
     }
@@ -694,10 +730,11 @@ export default function ChatPage() {
     try {
       const r = await apiFetch(`/api/chat/${characterId}/messages/${deleteTargetId}`, { method: "DELETE" });
       const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || "Couldn't delete that message.");
       setMessages((prev) => prev.filter((m) => m.id !== deleteTargetId));
       if (typeof data.relationshipLevel === "number") setRelationshipLevel(data.relationshipLevel);
-    } catch {
-      setError("Couldn't delete that message.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't delete that message.");
     } finally {
       setDeleteTargetId(null);
     }
@@ -732,6 +769,7 @@ export default function ChatPage() {
     setEditingId(null);
     setEditDraft("");
     setSending(true);
+    sendingRef.current = true;
     lastActionRef.current = { type: "regenerate" };
 
     const controller = new AbortController();
@@ -740,7 +778,7 @@ export default function ChatPage() {
     try {
       const res = await apiFetch(`/api/chat/${characterId}`, {
         method: "POST",
-        body: buildChatBody(roleplayPrefs, { editMessageId: id, editContent: newContent }),
+        body: buildStoryChatBody({ editMessageId: id, editContent: newContent }),
         signal: controller.signal,
       });
       await runStream(res, assistantId, (message) => {
@@ -866,6 +904,7 @@ export default function ChatPage() {
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.nativeEvent.isComposing) return;
     // Mobile virtual keyboards fire an "Enter" keydown for their own
     // return/newline key (and mid-autocomplete keystrokes can trigger it
     // too), so treating Enter as "send" there causes half-typed messages to
@@ -905,6 +944,8 @@ export default function ChatPage() {
     );
   }
 
+  if (loadError) return <RequireAuth><AppShell variant="chat"><div className="m-auto p-8 text-center"><h1 className="font-display text-2xl mb-3">Let's reconnect</h1><p role="alert" className="text-parchment/60 mb-5">{loadError}</p><button className="rp-button" onClick={() => setLoadAttempt(n => n + 1)}>Try again</button></div></AppShell></RequireAuth>;
+
   if (!character) {
     return (
       <RequireAuth>
@@ -931,7 +972,7 @@ export default function ChatPage() {
   return (
     <RequireAuth>
       <AppShell variant="chat">
-        <main className="flex-1 flex flex-col min-h-0 relative">
+        <main className="rp-chat flex-1 flex flex-col min-h-0 relative">
           {/* Header */}
           <header className="px-3 sm:px-4 md:px-6 py-2 border-b border-white/10 shrink-0 bg-gradient-to-r from-surface-raised to-plum-deep/30">
             {character && (
@@ -955,8 +996,8 @@ export default function ChatPage() {
                   <div className="min-w-0">
                     <p className="font-display text-base sm:text-lg truncate leading-tight">{character.name}</p>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-blue-400">✓</span>
-                      <span className="text-[10px] text-parchment/40">Verified character</span>
+                      <span className="rp-status-dot" />
+                      <span className="text-[10px] text-parchment/40">AI character</span>
                       <span className="text-parchment/20 text-[10px]">·</span>
                       <button
                         type="button"
@@ -1009,7 +1050,7 @@ export default function ChatPage() {
                       <button onClick={() => { setMemoryOpen(true); setChatMenuOpen(false); }} className="w-full text-left px-3 py-2 text-xs text-parchment/80 hover:bg-white/5 transition-colors">🧠 Memory</button>
                       <button
                         onClick={() => { onResetConversation(); setChatMenuOpen(false); }}
-                        disabled={resetting}
+                        disabled={resetting || sending}
                         className="w-full text-left px-3 py-2 text-xs text-parchment/80 hover:bg-white/5 transition-colors disabled:opacity-50"
                       >
                         {resetting ? "Clearing…" : "🗑 Clear conversation"}
@@ -1043,28 +1084,41 @@ export default function ChatPage() {
             steering={sending}
           />
 
+          <div className="rp-chat-toolbar">
+            <button onClick={() => setDirectorOpen(true)}>✧ Scene director{story.scene ? " · Active" : ""}</button>
+            <button onClick={() => setMemoryOpen(true)}>◇ Memory</button>
+            <button aria-expanded={searchOpen} onClick={() => setSearchOpen(v => !v)}>⌕ Search</button>
+            <button disabled={sending || !messages.length} onClick={() => steerScene("Continue naturally from the current moment. Do not choose the user's actions or speak for them.")}>Continue →</button>
+          </div>
+          {searchOpen && <div className="rp-chat-search"><input autoFocus aria-label="Search conversation" placeholder="Find a moment in this conversation…" value={searchText} onChange={e => setSearchText(e.target.value)} />
+            <span>{searchText.trim() ? messages.filter(m => m.content.toLowerCase().includes(searchText.toLowerCase().trim())).length : 0} matches</span>
+            <button disabled={!searchText.trim()} onClick={() => { const m = messages.find(m => m.content.toLowerCase().includes(searchText.toLowerCase().trim())); if (m) document.getElementById(`message-${m.id}`)?.scrollIntoView({ block: "center", behavior: "smooth" }); }}>Find first</button>
+            <button aria-label="Close search" onClick={() => { setSearchOpen(false); setSearchText(""); }}>✕</button></div>}
+          <StoryDirector open={directorOpen} value={story} onClose={() => setDirectorOpen(false)} onApply={applyStory} />
+
           {/* Messages Area */}
           <div
             ref={scrollRef}
             onScroll={onScroll}
-            className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-12 py-6 space-y-4 bg-cover bg-center bg-no-repeat"
-            style={(() => { const bg = character?.backgroundUrl || (character ? getCharacterBackground(character.name) : null); return bg ? { backgroundImage: `url(${resolveMediaUrl(bg)})` } : undefined; })()}
+            className="rp-transcript flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-12 py-6 space-y-4 bg-cover bg-center bg-no-repeat"
+            style={(() => { const bg = character?.backgroundUrl || (character ? getCharacterBackground(character.name) : null); return bg ? { backgroundImage: `linear-gradient(rgba(10,10,16,.83), rgba(10,10,16,.94)), url(${resolveMediaUrl(bg)})` } : undefined; })()}
           >
             {character && messages.length === 0 && (
               <div className="max-w-[85%] sm:max-w-lg chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 message-slide-in">
                 {character.greeting}
               </div>
             )}
+            {messages.length === 0 && <div className="rp-opening"><p>Every good story starts with a choice.</p><button onClick={() => setDirectorOpen(true)}>Set the scene ↗</button><button onClick={() => { updateDraft("*I smile, curious.* Tell me something about yourself."); textareaRef.current?.focus(); }}>Break the ice →</button></div>}
             {messages.map((m: Message, i: number) => {
               const isLastAssistant = m.role === "assistant" && i === messages.length - 1;
               const isStreamingEmpty = isLastAssistant && sending && !m.content;
               const isEditing = editingId === m.id;
               const msgReactions = reactions.get(m.id) || [];
 
-              const userInitial = (currentUser?.displayName || "You").charAt(0).toUpperCase();
+              const userInitial = (story.personaName || currentUser?.displayName || "You").charAt(0).toUpperCase();
 
               return (
-                <div key={m.id} className="group message-slide-in flex gap-2 sm:gap-3">
+                <div id={`message-${m.id}`} key={m.id} className={`rp-message group message-slide-in flex gap-2 sm:gap-3 ${m.role === "user" ? "flex-row-reverse" : ""} ${searchOpen && searchText.trim() && m.content.toLowerCase().includes(searchText.toLowerCase().trim()) ? "rp-search-match" : ""}`}>
                   {/* Avatar */}
                   {m.role === "assistant" ? (
                     <div
@@ -1089,10 +1143,10 @@ export default function ChatPage() {
                     {/* Name + badge + time */}
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-medium text-sm text-parchment/90 truncate">
-                        {m.role === "assistant" ? character.name : (currentUser?.displayName || "You")}
+                        {m.role === "assistant" ? character.name : (story.personaName || currentUser?.displayName || "You")}
                       </span>
                       {m.role === "assistant" && (
-                        <span className="text-[10px] text-blue-400 shrink-0">✓</span>
+                        <span className="text-[9px] text-parchment/40 shrink-0">AI</span>
                       )}
                       {m.createdAt && (
                         <span className="text-[10px] text-parchment/30">{formatTime(m.createdAt)}</span>
@@ -1111,6 +1165,7 @@ export default function ChatPage() {
                             autoResizeEdit();
                           }}
                           onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => {
+                            if (e.nativeEvent.isComposing) return;
                             if (e.key === "Enter" && !e.shiftKey) {
                               e.preventDefault();
                               submitEdit(m.id);
@@ -1447,17 +1502,18 @@ export default function ChatPage() {
             </div>
           )}
 
-          <form onSubmit={onSend} className="flex gap-2 px-4 sm:px-6 py-3 sm:py-4 border-t border-parchment/10 items-end shrink-0">
+          <form onSubmit={onSend} className="rp-composer flex gap-2 px-4 sm:px-6 py-3 sm:py-4 border-t border-parchment/10 items-end shrink-0">
             <div className="flex-1 relative">
               <textarea
                 ref={textareaRef}
                 value={input}
                 onChange={(e) => {
-                  setInput(e.target.value.slice(0, MAX_MESSAGE_LENGTH));
+                  updateDraft(e.target.value.slice(0, MAX_MESSAGE_LENGTH));
                   autoResize();
                 }}
                 onKeyDown={onKeyDown}
-                placeholder="Message..."
+                aria-label={`Message ${character.name}`}
+                placeholder={`Write to ${character.name}…`}
                 rows={1}
                 className="w-full rounded-2xl bg-plum-deep/80 border border-parchment/15 px-4 py-2.5 text-sm focus-ring resize-none max-h-40 overflow-y-auto"
               />
@@ -1500,6 +1556,7 @@ export default function ChatPage() {
               )}
             </div>
           </form>
+          <p className="rp-composer-note">AI characters are fictional. <span>{input.length > 3000 ? `${input.length} / ${MAX_MESSAGE_LENGTH}` : "Your choices shape the story."}</span></p>
         </main>
       </AppShell>
     </RequireAuth>

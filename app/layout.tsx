@@ -20,8 +20,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Rolichat — craft a companion",
-  description: "Create custom AI characters and talk with them.",
+  title: "Rolichat — your next story starts here",
+  description: "Meet memorable AI characters, direct your own scenes, and build stories shaped by your choices.",
   manifest: "/manifest.json",
   icons: {
     icon: [

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiFetch, resolveMediaUrl } from "@/lib/api";
 import { EARLY_ACCESS_MESSAGE, PREMIUM_PAYMENTS_ENABLED } from "@/lib/premium";
+import { getCachedUser, fetchAndCacheUser } from "@/lib/authCache";
 import Logo from "@/components/Logo";
 import InstallAppButton from "@/components/InstallAppButton";
 
@@ -24,6 +25,7 @@ type AppShellProps = {
 
 const NAV: { href: string; label: string; icon: string; badge?: string }[] = [
   { href: "/explore", label: "Explore", icon: "⌂" },
+  { href: "/me/chats", label: "Your stories", icon: "☷" },
   { href: "/plus", label: "Rolichat+", icon: "♛", badge: PREMIUM_PAYMENTS_ENABLED ? undefined : "Free" },
   { href: "/wallet", label: "Wallet", icon: "◎" },
   { href: "/dashboard", label: "Studio", icon: "✦" },
@@ -38,22 +40,23 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    apiFetch("/api/auth/me")
-      .then((r) => r.json().catch(() => ({})))
-      .then((d) => setDisplayName(d.user?.displayName ?? ""))
-      .catch(() => {});
+    let live = true;
+    const cached = getCachedUser();
+    if (cached?.user && cached.fresh) setDisplayName(cached.user.displayName);
+    else fetchAndCacheUser().then(user => { if (live) setDisplayName(user?.displayName || ""); });
     apiFetch("/api/characters")
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => {
         const list = (d.characters ?? []) as ChatPreview[];
         const withPreview = list.filter((c) => c.lastMessagePreview);
-        setChats(withPreview.slice(0, 8));
+        if (live) setChats(withPreview.slice(0, 8));
       })
-      .catch(() => setChats([]));
+      .catch(() => { if (live) setChats([]); });
+    return () => { live = false; };
   }, [pathname]);
 
   return (
-    <div className="min-h-dvh flex bg-void text-parchment">
+    <div className="rp-app-shell min-h-dvh flex bg-void text-parchment">
       <aside className="hidden md:flex w-[260px] shrink-0 flex-col border-r border-white/5 bg-gradient-to-b from-surface-raised via-surface-raised to-plum-deep/40 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-gold/5 to-transparent opacity-30 pointer-events-none" />
         
@@ -252,6 +255,7 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
       </>
         )}
         {children}
+        {variant !== "chat" && <nav className="rp-mobile-nav" aria-label="Main navigation">{[{ href: "/explore", label: "Explore", icon: "⌂" }, { href: "/me/chats", label: "Stories", icon: "☷" }, { href: "/dashboard", label: "Create", icon: "✧" }, { href: "/me", label: "Profile", icon: "◉" }].map(item => <Link key={item.href} href={item.href} aria-current={pathname === item.href ? "page" : undefined}><span aria-hidden="true">{item.icon}</span>{item.label}</Link>)}</nav>}
       </div>
     </div>
   );

@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { fetchAndCacheUser } from "@/lib/authCache";
+import { readLocal, writeLocal } from "@/lib/storySettings";
+import { resolveMediaUrl } from "@/lib/api";
 import { apiFetch } from "@/lib/api";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
@@ -13,7 +16,6 @@ import ExploreCharacterCard, {
   explicitTags,
   type ExploreCardCharacter,
 } from "@/components/ExploreCharacterCard";
-import { PremiumLockBadge } from "@/components/PremiumActionButton";
 
 const REPORT_REASONS: { value: string; label: string }[] = [
   { value: "harassment_or_hate", label: "Harassment or hate speech" },
@@ -26,6 +28,8 @@ const REPORT_REASONS: { value: string; label: string }[] = [
 const TABS = [
   { id: "all", label: "Explore" },
   { id: "trending", label: "Trending" },
+  { id: "saved", label: "♡ Saved" },
+  { id: "fantasy", label: "Fantasy" },
   { id: "premium", label: "Premium" },
   { id: "anime", label: "Anime" },
   { id: "romance", label: "Romance" },
@@ -38,8 +42,9 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 
 function matchesTab(c: ExploreCardCharacter, tab: TabId): boolean {
-  if (tab === "all") return true;
-  const tags = inferTags(c).map((t) => t.toLowerCase());
+  if (tab === "all" || tab === "saved") return true;
+  if (tab === "fantasy") return inferTags(c, false).some(t => t.toLowerCase() === "fantasy");
+  const tags = inferTags(c, false).map((t) => t.toLowerCase());
   if (tab === "trending") return true;
   // Authoritative only — a creator explicitly tagging their character
   // "premium", not a guess from romance/drama keywords in the tagline.
@@ -65,10 +70,31 @@ export default function ExplorePage() {
   const [reportNote, setReportNote] = useState("");
   const [reportStatus, setReportStatus] = useState<"idle" | "sending" | "sent">("idle");
   const [reportError, setReportError] = useState("");
-  const [nsfwEnabled, setNsfwEnabled] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("rolichat_nsfw") === "1";
-  });
+  const [nsfwEnabled, setNsfwEnabled] = useState(false);
+  const [saved, setSaved] = useState<string[]>([]);
+  const [userId, setUserId] = useState("");
+  const [recent, setRecent] = useState<(ExploreCardCharacter & { lastMessagePreview?: string })[]>([]);
+  const [loadError, setLoadError] = useState("");
+  const [reload, setReload] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(20);
+  useEffect(() => {
+    let live = true;
+    fetchAndCacheUser().then(user => {
+      if (!live || !user) return;
+      setUserId(user.id);
+      const ids = readLocal<unknown>(`rolichat:saved:${user.id}`, []);
+      setSaved(Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : []);
+    });
+    apiFetch("/api/characters").then(r => r.ok ? r.json() : null).then(d => { if (live) setRecent((d?.characters || []).filter((c: { lastMessagePreview?: string }) => c.lastMessagePreview).slice(0, 3)); }).catch(() => {});
+    return () => { live = false; };
+  }, []);
+  useEffect(() => { setVisibleCount(20); }, [tab, query, nsfwEnabled]);
+  function toggleSaved(id: string) {
+    if (!userId) return;
+    const next = saved.includes(id) ? saved.filter(item => item !== id) : [...saved, id];
+    setSaved(next);
+    if (!writeLocal(`rolichat:saved:${userId}`, next)) setError("Saved for this visit. Browser storage is unavailable.");
+  }
 
   function toggleNsfw() {
     if (!nsfwEnabled) {
@@ -79,29 +105,30 @@ export default function ExplorePage() {
     }
     const next = !nsfwEnabled;
     setNsfwEnabled(next);
-    window.localStorage.setItem("rolichat_nsfw", next ? "1" : "0");
+    // Mature discovery is deliberately opt-in for each visit.
   }
 
   useEffect(() => {
     let ignore = false;
     setCharacters(null);
+    setLoadError("");
     apiFetch(`/api/characters/discover${nsfwEnabled ? "?nsfw=1" : ""}`)
       .then(async (r) => (r.ok ? r.json() : Promise.reject()))
       .then((data) => {
-        if (!ignore) setCharacters(data.characters);
+        if (!ignore) setCharacters(Array.isArray(data.characters) ? data.characters : []);
       })
       .catch(() => {
-        if (!ignore) setCharacters([]);
+        if (!ignore) { setCharacters([]); setLoadError("Couldn't load the cast. Please check your connection and try again."); }
       });
     return () => {
       ignore = true;
     };
-  }, [nsfwEnabled]);
+  }, [nsfwEnabled, reload]);
 
   const filtered = useMemo(() => {
     if (!characters) return null;
     const q = query.trim().toLowerCase();
-    let list = characters.filter((c) => matchesTab(c, tab));
+    let list = characters.filter((c) => matchesTab(c, tab) && (tab !== "saved" || saved.includes(c.id)));
     if (tab === "trending") {
       // trendScore comes from the backend: recent (7-day) message activity
       // weighted highest, remix count next, mild recency decay. See
@@ -113,11 +140,11 @@ export default function ExplorePage() {
         (c) =>
           c.name.toLowerCase().includes(q) ||
           c.tagline.toLowerCase().includes(q) ||
-          c.personality.toLowerCase().includes(q) ||
+          (c.personality || "").toLowerCase().includes(q) ||
           (() => {
             try {
               const tags = JSON.parse(c.tags || "[]");
-              return Array.isArray(tags) && tags.some((t: string) => t.toLowerCase().includes(q));
+              return Array.isArray(tags) && tags.some((t: unknown) => typeof t === "string" && t.toLowerCase().includes(q));
             } catch {
               return false;
             }
@@ -125,7 +152,7 @@ export default function ExplorePage() {
       );
     }
     return list;
-  }, [characters, tab, query]);
+  }, [characters, tab, query, saved]);
 
   async function onRemix(id: string) {
     if (remixingId) return;
@@ -172,33 +199,14 @@ export default function ExplorePage() {
     <RequireAuth>
       <AppShell>
         <WelcomeOnboarding />
-        <div className="flex-1 overflow-y-auto">
+        <div className="rp-discover flex-1 overflow-y-auto">
           <div className="px-4 md:px-8 pt-6 pb-4">
-            <Link
-              href="/plus"
-              className="promo-banner block rounded-2xl border border-gold/20 px-6 py-5 mb-6 overflow-hidden relative focus-ring group"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 relative z-10">
-                <div>
-                  <p className="text-xs text-gold/90 uppercase tracking-widest mb-1 flex items-center gap-1">
-                    <span className="text-gold">♛</span> Join Rolichat+
-                  </p>
-                  <p className="text-xl md:text-2xl font-display text-parchment">
-                    Unlimited access to premium roleplay engines
-                  </p>
-                  <p className="text-sm text-parchment/50 mt-1 flex items-center gap-2 flex-wrap">
-                    Premium models · Extended memory · No ads (later)
-                    <PremiumLockBadge />
-                  </p>
-                </div>
-                <span className="text-5xl opacity-80 hidden sm:block group-hover:animate-float" aria-hidden>
-                  ♛
-                </span>
-              </div>
-            </Link>
+            <div className="rp-discover-heading"><div><p className="rp-eyebrow">THE NEXT CHAPTER IS YOURS</p><h1>Where will you <em>go today?</em></h1><p>A familiar face. An unexpected world. A story waiting for you.</p></div><Link href="/dashboard" className="rp-button">＋ Create a character</Link></div>
+            {recent.length > 0 && <section className="rp-recent-section"><div className="rp-row-title"><h2>Pick up where you left off</h2><Link href="/me/chats">All conversations ↗</Link></div><div className="rp-recent-grid">{recent.map(c => <Link className="rp-recent-card" href={`/chat/${c.id}`} key={c.id}><span className="rp-recent-avatar">{c.avatarUrl ? <img src={resolveMediaUrl(c.avatarUrl)} alt="" loading="lazy" /> : c.avatarEmoji}</span><div><strong>{c.name}</strong><p>{c.lastMessagePreview}</p></div><span>↗</span></Link>)}</div></section>}
+            <section className="rp-discover-banner"><div><span className="rp-eyebrow">A LITTLE SERENDIPITY</span><h2>Your next favorite character<br />might surprise you.</h2><button className="rp-text-button" disabled={!filtered?.length || !!remixingId} onClick={() => { if (filtered?.length) onRemix(filtered[Math.floor(Math.random() * filtered.length)].id); }}>Surprise me ↗</button></div><div aria-hidden="true" className="rp-banner-art">✦<span>✧</span></div></section>
 
             <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-4">
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+              <div className="min-w-0 lg:flex-1 flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
                 {TABS.map(({ id, label }) => (
                   <button
                     key={id}
@@ -214,14 +222,15 @@ export default function ExplorePage() {
                   </button>
                 ))}
               </div>
-              <div className="flex-1 max-w-md ml-auto flex items-center gap-2">
+              <div className="w-full lg:w-80 shrink-0 ml-auto flex items-center gap-2">
                 <div className="relative flex-1">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-parchment/30 text-sm">⌕</span>
                   <input
                     type="search"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search characters…"
+                    aria-label="Search characters"
+                    placeholder="Search names, worlds, personalities…"
                     className="w-full rounded-full bg-surface-card border border-white/10 pl-8 pr-4 py-2.5 text-sm focus-ring placeholder:text-parchment/25 transition-all"
                   />
                 </div>
@@ -245,6 +254,9 @@ export default function ExplorePage() {
               <p className="mb-4 text-sm text-rose bg-rose/10 border border-rose/30 rounded-lg px-3 py-2">{error}</p>
             )}
 
+            <div className="rp-row-title"><h2>{tab === "saved" ? "Your saved cast" : query ? "Search results" : "Find your kind of story"}</h2><span>{filtered ? `${filtered.length} characters` : "Loading characters…"}</span></div>
+            {tab === "saved" && <p className="rp-muted mb-4">Saved on this browser. Mature characters appear only when 18+ is enabled.</p>}
+            {loadError && <div className="rp-note" role="alert">{loadError} <button onClick={() => setReload(n => n + 1)} className="underline ml-2">Try again</button></div>}
             {filtered === null && (
               <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {Array.from({ length: 10 }).map((_, i) => (
@@ -253,12 +265,12 @@ export default function ExplorePage() {
               </div>
             )}
 
-            {filtered?.length === 0 && (
+            {!loadError && filtered?.length === 0 && (
               <div className="text-center py-20 text-parchment/45">
                 <span className="text-5xl block mb-4 opacity-50">🔍</span>
-                <p className="text-lg mb-2 font-display">Nothing here yet</p>
+                <p className="text-lg mb-2 font-display">{tab === "saved" ? "Keep your favorites close" : "No characters found"}</p>
                 <p className="text-sm max-w-md mx-auto text-parchment/40">
-                  Share a character from{" "}
+                  {tab === "saved" ? "Tap the heart on a character to save it, or create one in " : "Try another search or genre, or create a character in "}{" "}
                   <Link href="/dashboard" className="text-gold hover:text-gold/80 transition-colors">
                     Studio
                   </Link>{" "}
@@ -269,12 +281,15 @@ export default function ExplorePage() {
 
             {filtered && filtered.length > 0 && (
               <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                {filtered.map((c) => (
+                {filtered.slice(0, visibleCount).map((c) => (
                   <ExploreCharacterCard
                     key={c.id}
                     character={c}
                     onRemix={() => onRemix(c.id)}
                     remixing={remixingId === c.id}
+                    disabled={Boolean(remixingId)}
+                    saved={saved.includes(c.id)}
+                    onSave={() => toggleSaved(c.id)}
                     onReport={() => {
                       setReportTarget(c);
                       setReportReason(REPORT_REASONS[0].value);
@@ -286,6 +301,7 @@ export default function ExplorePage() {
                 ))}
               </div>
             )}
+            {filtered && visibleCount < filtered.length && <div className="text-center py-8"><button className="rp-button" onClick={() => setVisibleCount(n => n + 20)}>Show more characters ↓</button></div>}
           </div>
         </div>
 

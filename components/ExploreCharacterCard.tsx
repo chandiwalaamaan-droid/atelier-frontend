@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { resolveMediaUrl } from "@/lib/api";
 
 export type ExploreCardCharacter = {
@@ -35,7 +36,7 @@ const TAG_RULES: { tag: string; re: RegExp }[] = [
   { tag: "Fantasy", re: /magic|dragon|fantasy|realm|witch/i },
 ];
 
-export function inferTags(c: ExploreCardCharacter): string[] {
+export function inferTags(c: ExploreCardCharacter, limit = true): string[] {
   const text = `${c.tagline} ${c.personality} ${c.name}`;
   const inferred = TAG_RULES.filter(({ re }) => re.test(text)).map(({ tag }) => tag);
 
@@ -52,7 +53,7 @@ export function inferTags(c: ExploreCardCharacter): string[] {
   }
 
   const combined = [...new Set([...explicit, ...inferred])];
-  return combined.length ? combined.slice(0, 3) : ["Roleplay"];
+  return combined.length ? (limit ? combined.slice(0, 3) : combined) : ["Roleplay"];
 }
 
 // Only the creator-supplied tags, no regex inference — used where "premium"
@@ -83,17 +84,14 @@ type Props = {
   onRemix: () => void;
   remixing: boolean;
   onReport: () => void;
+  saved?: boolean;
+  onSave?: () => void;
+  disabled?: boolean;
 };
 
-export default function ExploreCharacterCard({ character: c, onRemix, remixing, onReport }: Props) {
-  let tags: string[];
-  try {
-    const parsed = c.tags ? JSON.parse(c.tags) : [];
-    tags = Array.isArray(parsed) ? parsed.slice(0, 5) : inferTags(c);
-  } catch {
-    tags = inferTags(c);
-  }
-  if (!tags.length) tags = inferTags(c);
+export default function ExploreCharacterCard({ character: c, onRemix, remixing, onReport, saved, onSave, disabled }: Props) {
+  const tags = inferTags(c);
+  const [imageFailed, setImageFailed] = useState(false);
   const blurb = c.tagline || c.personality;
 
   function cachePreview() {
@@ -109,38 +107,10 @@ export default function ExploreCharacterCard({ character: c, onRemix, remixing, 
   }
 
   return (
-    <article className="group rounded-2xl overflow-hidden bg-gradient-to-b from-surface-card to-surface-raised border border-white/5 hover:border-gold/30 transition-all duration-300 flex flex-col card-hover">
+    <article className="rp-explore-card group rounded-2xl overflow-hidden bg-gradient-to-b from-surface-card to-surface-raised border border-white/5 hover:border-gold/30 transition-all duration-300 flex flex-col card-hover">
       <Link href={`/characters/${c.id}`} onClick={cachePreview} className="contents focus-ring">
       <div className="relative aspect-[3/4] bg-surface-raised overflow-hidden">
-        {c.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={resolveMediaUrl(c.avatarUrl)}
-            alt=""
-            className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-500"
-          />
-        ) : (
-          <img
-            src={slugifyAvatar(c.name)}
-            alt={c.name}
-            className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-500"
-            onError={(e) => {
-              const img = e.target as HTMLImageElement;
-              img.style.display = 'none';
-              const parent = img.parentElement;
-              if (parent) {
-                const fallback = parent.querySelector('.emoji-fallback');
-                if (fallback) (fallback as HTMLDivElement).style.display = 'flex';
-              }
-            }}
-          />
-        )}
-        <div
-          className="emoji-fallback w-full h-full items-center justify-center text-6xl transition-transform duration-500 group-hover:scale-110 hidden"
-          style={{ background: `linear-gradient(160deg, ${c.accentColor}44, #121218)` }}
-        >
-          {c.avatarEmoji}
-        </div>
+        {!imageFailed ? <img src={resolveMediaUrl(c.avatarUrl) || slugifyAvatar(c.name)} alt={c.name} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300" onError={() => setImageFailed(true)} /> : <div className="w-full h-full flex items-center justify-center text-6xl" style={{ background: `linear-gradient(160deg, ${c.accentColor}44, #121218)` }}>{c.avatarEmoji}</div>}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         <div className="absolute top-2 left-2 right-2 flex items-center justify-between gap-1.5">
           <span className="shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-sm border border-white/5">
@@ -154,9 +124,10 @@ export default function ExploreCharacterCard({ character: c, onRemix, remixing, 
         </div>
       </div>
       </Link>
-      <div className="p-3 flex flex-col flex-1">
+      <div className="p-3 flex flex-col flex-1 relative">
+        {onSave && <button className="rp-save-button" type="button" aria-label={`${saved ? "Unsave" : "Save"} ${c.name}`} aria-pressed={saved} onClick={onSave}>{saved ? "♥" : "♡"}</button>}
         <Link href={`/characters/${c.id}`} onClick={cachePreview} className="focus-ring">
-          <h3 className="font-semibold text-parchment truncate group-hover:text-gold transition-colors">{c.name}</h3>
+          <h3 className="font-semibold text-parchment truncate pr-8 group-hover:text-gold transition-colors">{c.name}</h3>
           <p className="text-xs text-parchment/50 line-clamp-2 mt-1 min-h-[2.5rem] leading-relaxed">{blurb}</p>
           <div className="flex flex-wrap gap-1 mt-2 mb-3">
             {tags.map((t) => (
@@ -169,10 +140,10 @@ export default function ExploreCharacterCard({ character: c, onRemix, remixing, 
         <button
           type="button"
           onClick={onRemix}
-          disabled={remixing}
+          disabled={remixing || disabled}
           className="mt-auto w-full py-2 rounded-full bg-gold text-ink text-sm font-medium hover:brightness-110 focus-ring disabled:opacity-50 btn-shine transition-all"
         >
-          {remixing ? "Creating your version…" : "Use as Template"}
+          {remixing ? "Creating your version…" : "Start a story ↗"}
         </button>
         <button type="button" onClick={onReport} className="mt-2 text-[10px] text-parchment/35 hover:text-rose focus-ring transition-colors">
           Report

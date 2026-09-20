@@ -5,268 +5,45 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getCachedUser, fetchAndCacheUser } from "@/lib/authCache";
-import TiltCard from "@/components/TiltCard";
 import Logo from "@/components/Logo";
 
-import ScrollFrameSequence from "@/components/ScrollFrameSequence";
-
-// Hover glow color per character, keyed to each character's `accent` above.
-// (Previously `accent` was set on every character but never read anywhere,
-// so every card showed the same gold glow regardless of its assigned tone.)
-const ACCENT_GLOW: Record<string, string> = {
-  violet: "rgba(139,92,246,.18)",
-  rose: "rgba(181,101,122,.18)",
-  cyan: "rgba(6,182,212,.18)",
-  amber: "rgba(245,158,11,.18)",
-};
-
-const FEATURED_CHARACTERS = [
-  {
-    name: "Sukuna",
-    tagline: "the king of curses",
-    image: "/assets/characters/Sukuna_202608132107.jpeg",
-    accent: "violet",
-  },
-  {
-    name: "Faye Valentine",
-    tagline: "sharp-tongued dreamer",
-    image: "/assets/characters/Faye_Valentine_202608132107.jpeg",
-    accent: "rose",
-  },
-  {
-    name: "Satoru Gojo",
-    tagline: "the strongest, casually",
-    image: "/assets/characters/Satoru_Gojo_202608132107.jpeg",
-    accent: "cyan",
-  },
-  {
-    name: "Hinata Hyuga",
-    tagline: "quiet strength",
-    image: "/assets/characters/Hinata_Hyuga_202608132107.jpeg",
-    accent: "violet",
-  },
-  {
-    name: "Denji",
-    tagline: "chaotic heart of gold",
-    image: "/assets/characters/Denji_202608132107.jpeg",
-    accent: "amber",
-  },
-  {
-    name: "Yor Forger",
-    tagline: "elegance with an edge",
-    image: "/assets/characters/Yor_Forger_202608132107.jpeg",
-    accent: "rose",
-  },
+const CAST = [
+  { name: "Satoru Gojo", tag: "A little chaos. A lot of confidence.", image: "Satoru_Gojo", genre: "Adventure" },
+  { name: "Faye Valentine", tag: "Every secret has a price.", image: "Faye_Valentine", genre: "Mystery" },
+  { name: "Yor Forger", tag: "There's more beneath the surface.", image: "Yor_Forger", genre: "Slice of life" },
+  { name: "Spike Spiegel", tag: "Some stories follow you everywhere.", image: "Spike_Spiegel", genre: "Sci-fi" },
 ];
-
-
+const SCENES = [
+  { label: "Mystery", name: "Faye Valentine", image: "Faye_Valentine", place: "AFTER HOURS · THE LAST TRAIN", text: "The station clock stops. Faye glances at the envelope in your hand, then at the empty platform. “Tell me you didn't open that.”", answer: "Would it help if I said no?" },
+  { label: "Adventure", name: "Satoru Gojo", image: "Satoru_Gojo", place: "NEW CHAPTER · AN UNLIKELY ALLIANCE", text: "Gojo turns the map upside down, grinning. “Good news: I know exactly where we are. Bad news: so does everyone looking for us.”", answer: "Then we'd better keep moving." },
+  { label: "Cozy", name: "Yor Forger", image: "Yor_Forger", place: "SUNDAY MORNING · A SMALL CAFÉ", text: "Yor nudges a warm cup across the table. Rain traces little paths down the window. “We don't have to rush anywhere today, do we?”", answer: "No. I think we're exactly where we should be." },
+];
+const portrait = (name: string) => `/assets/characters/${name}_202608132107.jpeg`;
 
 export default function Home() {
   const router = useRouter();
-  const [authStatus, setAuthStatus] = useState<"checking" | "authed" | "guest">("checking");
-
+  const [sceneIndex, setSceneIndex] = useState(0);
+  const scene = SCENES[sceneIndex];
   useEffect(() => {
-    let cancelled = false;
+    let live = true;
     const cached = getCachedUser();
-    // Only trust the cache without a network round trip when it's both
-    // present AND fresh (checked in the last 60s — see lib/authCache.ts).
-    // A stale "authed" cache used to be trusted outright here, which could
-    // instantly bounce someone with an expired session over to /explore
-    // instead of keeping them on the (correct) logged-out landing page.
-    if (cached?.user && cached.fresh) {
-      setAuthStatus("authed");
-    } else {
-      fetchAndCacheUser().then((user) => {
-        if (cancelled) return;
-        setAuthStatus(user ? "authed" : "guest");
-      });
-    }
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    if (authStatus === "authed") router.replace("/explore");
-  }, [authStatus, router]);
-
-  if (authStatus === "checking" || authStatus === "authed") {
-    return (
-      <main className="min-h-screen flex items-center justify-center bg-void">
-        <p className="text-parchment/60 text-sm">Loading…</p>
-      </main>
-    );
-  }
-
+    if (cached?.user && cached.fresh) router.replace("/explore");
+    else fetchAndCacheUser().then(user => { if (live && user) router.replace("/explore"); });
+    return () => { live = false; };
+  }, [router]);
   return (
-    <main className="landing-page relative min-h-screen overflow-x-clip bg-void text-parchment">
-      <header className="landing-header fixed inset-x-0 top-0 z-50 px-4 py-3.5 sm:px-6 lg:px-10">
-        <div className="landing-header-shell mx-auto flex max-w-7xl items-center justify-between">
-          <Link href="/" className="group flex items-center gap-3 rounded-xl px-2 py-1.5 focus-ring">
-            <Logo size={30} />
-            <div className="leading-none">
-              <span className="font-display text-[1.08rem] tracking-tight">Rolichat</span>
-              <span className="ml-2 hidden text-[9px] uppercase tracking-[0.26em] text-parchment/30 sm:inline">AI roleplay</span>
-            </div>
-          </Link>
-
-          <nav className="landing-nav flex items-center gap-1.5 rounded-full p-1 sm:gap-2">
-            <Link href="/login" className="rounded-full px-3 py-2 text-xs text-parchment/65 transition-colors hover:bg-white/[0.06] hover:text-parchment focus-ring sm:px-4 sm:text-sm">
-              Log in
-            </Link>
-            <Link href="/signup" className="btn-shine btn-press rounded-full bg-white px-4 py-2 text-xs font-semibold text-ink transition-[filter,transform] hover:brightness-95 focus-ring sm:px-5 sm:text-sm">
-              Get started
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      <div className="relative">
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-[100svh]">
-          <div className="pointer-events-auto mx-auto flex h-full max-w-7xl items-start px-5 pt-28 sm:items-center sm:px-8 sm:pt-0 lg:px-12">
-            <div className="landing-hero-copy max-w-[36rem]">
-              <div className="landing-kicker animate-fade-in-up">
-                <span className="landing-kicker-dot" />
-                <span>Character studio</span>
-                <span className="landing-kicker-line" />
-                <span className="landing-kicker-live">Live</span>
-              </div>
-
-              <h1 className="landing-hero-title mt-6 animate-fade-in-up font-display leading-[.88] tracking-[-0.06em]">
-                <span className="block text-parchment">Your character</span>
-                <span className="landing-gradient-text block">comes to life.</span>
-              </h1>
-
-              <p className="mt-6 max-w-lg animate-fade-in-up text-sm leading-6 text-parchment/58 sm:text-[1.02rem] sm:leading-7" style={{ animationDelay: "100ms" }}>
-                Shape a personality, memory and story — then watch the character reveal itself as you move through the page.
-              </p>
-
-              <div className="mt-8 flex animate-fade-in-up flex-col gap-3 sm:flex-row" style={{ animationDelay: "160ms" }}>
-                <Link href="/signup" className="landing-primary-btn btn-shine btn-press inline-flex items-center justify-center gap-3 rounded-full bg-white px-6 py-3.5 text-sm font-semibold text-ink focus-ring">
-                  Create a character
-                  <span className="landing-arrow" aria-hidden>↗</span>
-                </Link>
-                <Link href="/explore" className="landing-secondary-btn btn-press inline-flex items-center justify-center gap-3 rounded-full px-6 py-3.5 text-sm font-medium text-parchment/80 focus-ring">
-                  Explore the cast
-                  <span className="text-parchment/35" aria-hidden>•</span>
-                  <span className="text-[11px] text-parchment/45">24/7</span>
-                </Link>
-              </div>
-
-              <div className="mt-8 grid max-w-xl grid-cols-3 gap-3 sm:mt-9">
-                {[['Memory', 'stays with them'], ['Personality', 'shapes every reply'], ['Story', 'keeps evolving']].map(([label, detail]) => (
-                  <div key={label} className="landing-mini-stat">
-                    <p>{label}</p>
-                    <span>{detail}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="landing-scroll-cue absolute bottom-6 left-1/2 -translate-x-1/2 text-center">
-            <div className="landing-scroll-orbit mx-auto mb-2">
-              <span />
-            </div>
-            <p className="text-[9px] uppercase tracking-[0.34em] text-white/32">Scroll to shape</p>
-          </div>
-        </div>
-
-        <ScrollFrameSequence scrollHeight="440vh" />
-      </div>
-
-      <section className="landing-proof relative z-10 px-4 py-5 sm:px-8 lg:px-12">
-        <div className="mx-auto grid max-w-7xl grid-cols-3 overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.018]">
-          {[['01', 'Infinite', 'possibilities'], ['02', 'Personal', 'characters'], ['03', 'AI-powered', 'roleplay']].map(([n, title, detail], i) => (
-            <div key={n} className={`landing-proof-item ${i ? 'border-l border-white/[0.07]' : ''}`}>
-              <span>{n}</span>
-              <div>
-                <p>{title}</p>
-                <small>{detail}</small>
-              </div>
-            </div>
-          ))}
-        </div>
+    <main className="rp-landing">
+      <header className="rp-nav"><Link href="/" className="rp-brand"><Logo size={30} />Rolichat<span>YOUR STORY STARTS HERE</span></Link><nav><a href="#cast" className="rp-nav-discover">Meet the cast</a><Link href="/login">Log in</Link><Link href="/signup" className="rp-button rp-button-small">Start your story ↗</Link></nav></header>
+      <section className="rp-hero">
+        <div className="rp-hero-copy"><p className="rp-eyebrow"><span className="rp-status-dot" /> A PLACE FOR YOUR IMAGINATION</p><h1>Not just a chat.<br />A world <em>you<br className="rp-desktop-break" /> belong in.</em></h1><p className="rp-hero-description">Meet a character. Take an unexpected turn. Build a story that could only happen with you.</p><div className="rp-hero-actions"><Link href="/signup" className="rp-button">Find your next story <span>↗</span></Link><a href="#preview" className="rp-text-button">Take a peek <span>↓</span></a></div><div className="rp-hero-footnote"><span>✧ Your own characters</span><span>◇ Memories that carry forward</span></div></div>
+        <div className="rp-hero-art" aria-label="Meet Faye Valentine, Satoru Gojo, and Yor Forger"><div className="rp-orbit rp-orbit-one" /><div className="rp-orbit rp-orbit-two" /><span className="rp-art-star">✧</span><div className="rp-portrait rp-portrait-left"><Image src={portrait("Satoru_Gojo")} alt="Satoru Gojo" fill sizes="(max-width: 700px) 30vw, 220px" /><span>THE UNEXPECTED ALLY</span></div><div className="rp-portrait rp-portrait-right"><Image src={portrait("Yor_Forger")} alt="Yor Forger" fill sizes="(max-width: 700px) 30vw, 220px" /><span>THE QUIET MYSTERY</span></div><div className="rp-portrait rp-portrait-main"><Image src={portrait("Faye_Valentine")} alt="Faye Valentine" fill priority sizes="(max-width: 700px) 56vw, 300px" /><div className="rp-portrait-caption"><small>YOUR NEXT CHAPTER</small><strong>Faye Valentine</strong><span>Mystery · Wit · A little trouble</span></div></div><div className="rp-floating-line"><span>✦</span> “So, what's our next move?”<small>You decide where this goes.</small></div></div>
       </section>
-
-      <section className="landing-section relative z-10 mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-12 lg:py-32">
-        <div className="mb-8 flex items-end justify-between gap-6 sm:mb-9">
-          <div>
-            <div className="section-eyebrow"><span /> The cast</div>
-            <h2 className="mt-3 max-w-full font-display text-[clamp(2.1rem,8vw,3.2rem)] leading-[.98] tracking-[-0.045em]">Start with a character.</h2>
-          </div>
-          <p className="hidden max-w-xs text-right text-xs leading-5 text-parchment/38 sm:block">Use the cast as a starting point. Then give the story your own voice.</p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4">
-          {FEATURED_CHARACTERS.map((char, i) => (
-            <Link href="/signup" key={char.name} className="group block focus-ring rounded-2xl animate-fade-in-up" style={{ animationDelay: `${i * 60}ms` }}>
-              <TiltCard className="character-card premium-character-card relative aspect-[3/4] overflow-hidden rounded-[22px] border border-white/[0.08] bg-surface-card">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <Image src={char.image} alt={char.name} fill sizes="(max-width: 639px) 50vw, (max-width: 1023px) 33vw, 16vw" className="object-cover transition-transform duration-[420ms] [transition-timing-function:var(--ease-out)] group-hover:scale-[1.045]" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent" />
-                <div className="absolute inset-x-0 bottom-0 p-3.5">
-                  <p className="font-display text-sm leading-tight sm:text-base">{char.name}</p>
-                  <p className="mt-1 truncate text-[10px] text-parchment/45">{char.tagline}</p>
-                </div>
-                <div
-                  className="absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-                  style={{ boxShadow: `inset 0 0 45px ${ACCENT_GLOW[char.accent] ?? "rgba(201,162,39,.16)"}` }}
-                />
-              </TiltCard>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="landing-section relative z-10 mx-auto max-w-7xl px-6 pb-20 sm:px-8 lg:px-12 lg:pb-28">
-        <div className="landing-process overflow-hidden rounded-[30px] border border-white/[0.08] p-7 sm:p-10 lg:p-12">
-          <div className="grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:gap-16">
-            <div>
-              <div className="section-eyebrow"><span /> How it works</div>
-              <h2 className="mt-3 max-w-md font-display text-3xl leading-[.98] tracking-[-0.04em] sm:text-5xl">Build the person. Enter the story.</h2>
-            </div>
-            <div className="grid gap-7 sm:grid-cols-3">
-              {[
-                ["01", "Craft", "Give your character a voice, personality and history."],
-                ["02", "Converse", "Start a conversation and let the roleplay unfold."],
-                ["03", "Evolve", "Refine your character and keep building the story."],
-              ].map(([number, title, text]) => (
-                <div key={number} className="landing-process-step group">
-                  <div className="landing-step-number">{number}</div>
-                  <div>
-                    <p className="font-display text-xl transition-colors duration-200 group-hover:text-gold-light">{title}</p>
-                    <p className="mt-2 text-xs leading-5 text-parchment/45">{text}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="landing-final relative z-10 px-6 pb-24 sm:px-8 lg:px-12">
-        <div className="landing-final-card mx-auto max-w-5xl overflow-hidden rounded-[32px] px-6 py-16 text-center sm:px-10 sm:py-20">
-          <div className="landing-final-glow" aria-hidden="true" />
-          <div className="relative z-10">
-            <div className="section-eyebrow justify-center"><span /> Your next story starts here <span /></div>
-            <h2 className="mx-auto mt-4 max-w-4xl font-display text-4xl leading-[.95] tracking-[-0.05em] sm:text-6xl lg:text-7xl">Don&apos;t just chat with AI. Step into the story.</h2>
-            <p className="mx-auto mt-5 max-w-2xl text-sm leading-6 text-parchment/45 sm:text-base">Create someone worth talking to, then give them a world worth staying in.</p>
-            <Link href="/signup" className="landing-cta-btn btn-shine btn-press mt-8 inline-flex items-center gap-3 rounded-full bg-gold px-7 py-3.5 text-sm font-semibold text-ink focus-ring">
-              Start creating
-              <span aria-hidden>↗</span>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      <footer className="relative z-10 border-t border-white/[0.06] px-6 py-7 sm:px-8 lg:px-12">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 text-[10px] text-parchment/30 sm:flex-row sm:items-center sm:justify-between">
-          <span>Rolichat is for adults 18+.</span>
-          <div className="flex gap-5">
-            <Link href="/terms" className="transition-colors hover:text-parchment/60">Terms & Content Policy</Link>
-            <Link href="/privacy" className="transition-colors hover:text-parchment/60">Privacy</Link>
-          </div>
-        </div>
-      </footer>
+      <div className="rp-marquee" aria-label="Explore different kinds of stories"><span>FANTASY</span><i>✦</i><span>SLOW-BURN STORIES</span><i>✦</i><span>MYSTERY</span><i>✦</i><span>SLICE OF LIFE</span><i>✦</i><span>ADVENTURE</span><i>✦</i><span>YOUR IMAGINATION</span></div>
+      <section id="cast" className="rp-section"><div className="rp-section-heading"><div><p className="rp-eyebrow">01 / MEET YOUR NEXT OBSESSION</p><h2>Someone worth <em>staying up for.</em></h2></div><Link href="/explore" className="rp-text-button">Explore characters ↗</Link></div><div className="rp-cast-grid">{CAST.map(c => <Link href="/explore" key={c.name} className="rp-cast-card"><div className="rp-cast-image"><Image src={portrait(c.image)} alt={c.name} fill sizes="(max-width: 640px) 45vw, 25vw" /><span>{c.genre}</span><b aria-hidden="true">↗</b></div><h3>{c.name}</h3><p>{c.tag}</p></Link>)}</div></section>
+      <section id="preview" className="rp-section rp-preview-section"><div className="rp-preview-copy"><p className="rp-eyebrow">02 / ONE MESSAGE. A THOUSAND POSSIBILITIES.</p><h2>Follow the story.<br /><em>Or change it.</em></h2><p>Set the scene, play your part, and see what happens next. Your character brings the personality. You bring the possibilities.</p><div className="rp-scene-tabs" role="tablist" aria-label="Story preview genre">{SCENES.map((s, i) => <button id={`preview-tab-${i}`} role="tab" aria-selected={sceneIndex === i} aria-controls="story-preview" key={s.label} onClick={() => setSceneIndex(i)}>{s.label}</button>)}</div><p className="rp-sample-note">Illustrative scene previews. Sign in to start a live conversation.</p></div><div className="rp-story-preview" id="story-preview" role="tabpanel" aria-labelledby={`preview-tab-${sceneIndex}`}><div className="rp-preview-header"><Image src={portrait(scene.image)} alt="" width={42} height={42} /><div><strong>{scene.name}</strong><span>AI character · Story preview</span></div><span className="rp-status-dot" /></div><p className="rp-preview-location">{scene.place}</p><div className="rp-preview-dialogue" key={sceneIndex}><p>{scene.text}</p><div className="rp-preview-answer">{scene.answer}<small>YOU</small></div></div><Link href="/signup" className="rp-preview-composer">What happens next? <span>↗</span></Link></div></section>
+      <section className="rp-section"><div className="rp-section-heading"><div><p className="rp-eyebrow">03 / MADE FOR THE WAY YOU IMAGINE</p><h2>A little more <em>yours.</em></h2></div></div><div className="rp-feature-grid">{[["◇", "A memory you can shape", "Keep the details that matter. Read and edit your character's conversation memory whenever you need."], ["✧", "You're in the director's chair", "Give yourself a role, choose the setting, and set the tone before the next chapter begins."], ["↺", "There's always another way", "Edit a message, regenerate a reply, or try an entirely new direction. Your story stays in your hands."]].map(([icon,title,text]) => <article key={title}><span>{icon}</span><h3>{title}</h3><p>{text}</p></article>)}</div></section>
+      <section className="rp-final"><span>✧</span><p className="rp-eyebrow">THE NEXT CHAPTER IS UNWRITTEN</p><h2>Make it <em>yours.</em></h2><Link href="/signup" className="rp-button">Start your story ↗</Link><p>No perfect opening line required.</p></section>
+      <footer className="rp-footer"><Link href="/" className="rp-brand"><Logo size={24} />Rolichat</Link><p>Fictional characters. Real imagination. For adults 18+.</p><div><Link href="/terms">Terms</Link><Link href="/privacy">Privacy</Link></div></footer>
     </main>
   );
 }

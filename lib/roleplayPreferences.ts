@@ -74,7 +74,7 @@ export function loadRoleplayPreferences(characterId: string, characterIsExplicit
 
 export function saveRoleplayPreferences(characterId: string, prefs: RoleplayPreferences) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(storageKey(characterId), JSON.stringify(prefs));
+  try { localStorage.setItem(storageKey(characterId), JSON.stringify(prefs)); } catch { /* Continue with in-memory settings. */ }
 }
 
 export const SPICE_LEVEL_LABELS: Record<SpiceLevel, string> = {
