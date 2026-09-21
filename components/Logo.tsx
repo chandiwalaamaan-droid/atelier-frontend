@@ -1,21 +1,22 @@
-export default function Logo({ className = "", size = 32 }: { className?: string; size?: number }) {
+type LogoProps = {
+  className?: string;
+  size?: number;
+  decorative?: boolean;
+};
+
+/** Transparent vector mark. Explicit dimensions prevent stretching or layout shift. */
+export default function Logo({ className = "", size = 32, decorative = false }: LogoProps) {
   return (
-    // Wrapped in .logo-wrap for a lively entrance animation (pop + settle) on
-    // mount, plus a subtle continuous "breathing" wobble and glow pulse behind
-    // it, so the logo doesn't sit dead-static. Respects prefers-reduced-motion
-    // globally (see globals.css).
-    <span className={`logo-wrap ${className}`}>
-      {/* Plain <img>, not next/image: a fixed-size logo doesn't need responsive
-      optimization, and routing it through Next's image pipeline on Netlify
-      (which needs their image-optimization function working correctly)
-      was showing up as a broken image icon. */}
+    <span className={`logo-wrap ${className}`} style={{ width: size, height: size }}>
+      {/* A static SVG stays sharp without an image-optimization request. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/logo.png"
-        alt="Rolichat"
+        src="/brand/rolichat-mark.svg"
+        alt={decorative ? "" : "Rolichat"}
+        aria-hidden={decorative || undefined}
         width={size}
         height={size}
-        style={{ width: size, height: size, objectFit: "contain" }}
+        draggable={false}
       />
     </span>
   );

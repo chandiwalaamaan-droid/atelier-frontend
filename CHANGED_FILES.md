@@ -1,19 +1,27 @@
-# Mobile patch: changed files
+# Logo update changed files
 
-Relative to the supplied Story Edition frontend ZIP. Paths are relative to the project folder.
+Relative to the mobile-fixed frontend. Paths are relative to this project.
 
-- `app/mobile.css`
-- `lib/useChatViewport.ts`
-- `app/layout.tsx`
-- `app/chat/[characterId]/page.tsx`
-- `app/me/page.tsx`
-- `components/AppShell.tsx`
-- `components/MemoryPanel.tsx`
-- `components/ConfirmDialog.tsx`
-- `components/AvatarGenerateModal.tsx`
-- `components/RoleplayModelPicker.tsx`
-- `MOBILE_FIXES.md`
 - `CHANGED_FILES.md`
+- `LOGO_UPDATE.md`
 - `UPGRADE.md`
-
-See MOBILE_FIXES.md for deployment and verification details.
+- `app/globals.css`
+- `app/icon.png`
+- `app/layout.tsx`
+- `app/page.tsx`
+- `components/AppShell.tsx`
+- `components/Logo.tsx`
+- `public/brand/rolichat-mark.svg`
+- `public/icons/apple-touch-icon.png`
+- `public/icons/icon-128.png`
+- `public/icons/icon-144.png`
+- `public/icons/icon-152.png`
+- `public/icons/icon-192.png`
+- `public/icons/icon-384.png`
+- `public/icons/icon-512.png`
+- `public/icons/icon-72.png`
+- `public/icons/icon-96.png`
+- `public/icons/maskable-192.png`
+- `public/icons/maskable-512.png`
+- `public/logo.png`
+- `public/sw.js`

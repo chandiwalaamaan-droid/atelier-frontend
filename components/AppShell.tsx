@@ -64,7 +64,7 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
         
         <Link href="/explore" className="flex items-center gap-2.5 px-5 py-5 focus-ring rounded-lg mx-2 mt-2 group relative">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold/30 to-gold/10 flex items-center justify-center shadow-lg shadow-gold/10 group-hover:shadow-gold/20 group-hover:scale-105 transition-all duration-300">
-            <Logo size={24} />
+            <Logo size={24} decorative />
           </div>
           <span className="font-display text-lg tracking-wide shimmer-text">Rolichat</span>
         </Link>
@@ -161,7 +161,7 @@ export default function AppShell({ children, variant = "default" }: AppShellProp
             {/* Mobile top bar */}
             <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-white/5 bg-gradient-to-r from-surface-raised to-plum-deep/60">
           <Link href="/explore" className="font-display text-lg flex items-center gap-2">
-            <Logo size={24} />
+            <Logo size={24} decorative />
             <span className="shimmer-text">Rolichat</span>
           </Link>
           <button

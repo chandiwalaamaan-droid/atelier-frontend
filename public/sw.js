@@ -2,9 +2,10 @@
 // requirements. Caches static assets (icons, manifest) for offline use;
 // deliberately does NOT cache API calls or chat pages, since those are
 // dynamic and should always hit the network.
-const CACHE_NAME = "rolichat-static-v1";
+const CACHE_NAME = "rolichat-static-v2-brand";
 const STATIC_ASSETS = [
   "/manifest.json",
+  "/brand/rolichat-mark.svg",
   "/logo.png",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
