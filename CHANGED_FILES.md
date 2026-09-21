@@ -1,3 +1,5 @@
+> Latest reply-length behavior and deployment notes: see REPLY_LENGTH_FIX.md. Earlier sentence/action caps described below are superseded.
+
 # Logo update changed files
 
 Relative to the mobile-fixed frontend. Paths are relative to this project.

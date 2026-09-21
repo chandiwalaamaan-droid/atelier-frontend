@@ -36,3 +36,10 @@ test('optional local settings survive unavailable or corrupt storage', () => {
   global.localStorage = {getItem(){return JSON.stringify({scene: 'x'.repeat(2000), tone:'unknown', persona:23})}};
   assert.equal(loadStory('test').scene.length,1200); assert.equal(loadStory('test').persona,''); assert.equal(loadStory('test').tone,'character');
 });
+
+test('final reconciliation and incomplete notices survive every transport split',()=>{
+ const final={type:'reply_final',text:'"All done."\n*She waves*'};
+ const incomplete={type:'reply_incomplete',message:'Use Continue to finish.'};
+ const wire='Draft'+event(final)+event(incomplete);
+ for(let i=0;i<=wire.length;i++)assert.deepEqual(parseChunks([wire.slice(0,i),wire.slice(i)]),{text:'Draft',events:[final,incomplete],rest:''});
+});

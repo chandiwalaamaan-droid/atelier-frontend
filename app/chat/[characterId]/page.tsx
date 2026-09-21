@@ -509,6 +509,12 @@ export default function ChatPage() {
             revealedLen = 0;
             paintRevealed();
             showToast("Reconnecting to keep the reply on track…");
+          } else if (ev.type === "reply_final" && typeof ev.text === "string") {
+            acc = ev.text;
+            revealedLen = Math.min(revealedLen, acc.length);
+            ensureAnimating();
+          } else if (ev.type === "reply_incomplete") {
+            showToast(typeof ev.message === "string" ? ev.message : "Reply interrupted. Use Continue to finish it.");
           } else if (ev.type === "fatal") {
             const message = typeof ev.message === "string" ? ev.message : "Something went wrong.";
             setError(message);
